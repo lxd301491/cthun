@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Document</title>
+    <script src="../dist/monitor.js"></script>
+  </head>
+  <body>
+    <!-- <img src="http://www.baidu.com/1.gif"> -->
+    <div id="div1">
+      <input id="input1" type="text" action-data='{"events":["click","input"]}'/>
+      <input id="input1" type="button" action-data='{"events":["click"]}' value="点击" onclick="addNewEle()"/>
+    </div>
+  </body>
+  <script>
+    function  addNewEle() {
+      let el = document.createElement("p");
+      document.querySelector("#div1").append(el);
+    }
+    
+    var monitor = new Cthun.Monitor({
+      appId: "test",
+      error: true,
+      uncaught: true,
+      action: true,
+      pv: true,
+      performance: true
+    });
+    monitor.start();
+    monitor.subscribe({
+      api: "http://www.baidu.com"
+    })
+    throw new Error("12312")
+  </script>
+</html>

@@ -1,0 +1,23 @@
+// 基本信息
+ver:        当前 JSSDK 版本
+re:         referrer, 当前页面的来源地址
+rnd:        随机数，避免请求缓存
+rc:         当前页面 URL 附带的扩展参数 refcode
+ru:         当前页面 URL
+dp:         屏幕分辨率
+nt:         网络连接类型
+
+// 以下为浏览器支持 window.performance.timing 时包含
+dnst:       DNS查询耗时
+tcpt:       TCP链接耗时
+rest:       request请求耗时
+wst:        白屏时间
+domt:       解析dom树耗时
+domrt:      domready时间
+plt:        页面加载时间
+ldt:        onload时间
+
+// 以下为魅族浏览器、应用 h5 内，当定义了 window.MzJavascriptInterface API 时包含
+umid:       设备 umid
+flymeid:    当前登录用户 flymeid
+mdevice:    设备类型
