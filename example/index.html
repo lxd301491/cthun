@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
     <title>Document</title>
-    <script src="../dist/monitor.js"></script>
+    <script src="../dist/cthun.js"></script>
   </head>
   <body>
     <!-- <img src="http://www.baidu.com/1.gif"> -->
@@ -19,8 +19,10 @@
       let el = document.createElement("p");
       document.querySelector("#div1").append(el);
     }
+
+    Cthun.config.debuggable = true;
     
-    var monitor = new Cthun.Monitor({
+    var launcher = new Cthun.MonitorLauncher({
       appId: "test",
       error: true,
       uncaught: true,
@@ -28,8 +30,8 @@
       pv: true,
       performance: true
     });
-    monitor.start();
-    monitor.subscribe({
+    launcher.start();
+    launcher.subscribe({
       api: "http://www.baidu.com"
     })
     throw new Error("12312")

@@ -8,6 +8,42 @@ var axios = _interopDefault(require('axios'));
 var pako = _interopDefault(require('pako'));
 var localForage = _interopDefault(require('localforage'));
 
+var Collectors = /** @class */ (function () {
+    function Collectors() {
+        this.collectors = new Map();
+    }
+    Collectors.getInstance = function () {
+        if (!Collectors.instance) {
+            Collectors.instance = new Collectors();
+        }
+        return Collectors.instance;
+    };
+    Collectors.prototype.reigster = function (key, collector) {
+        var it = this.collectors.keys();
+        var r;
+        while (r = it.next(), !r.done) {
+            if (r.value === key) {
+                throw TypeError("the collector type \"" + key + "\" already exists\uFF01");
+            }
+        }
+        var collectorr = new collector();
+        this.collectors.set(key, collectorr);
+        collectorr.start();
+        return this;
+    };
+    Collectors.prototype.unreigster = function (key) {
+        var _a;
+        var collectorr = this.collectors.get(key);
+        if (collectorr) {
+            collectorr.stop();
+        }
+        (_a = this.collectors.get(key)) === null || _a === void 0 ? void 0 : _a.stop();
+        this.collectors.delete(key);
+        return this;
+    };
+    return Collectors;
+}());
+
 /*! *****************************************************************************
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use
@@ -92,36 +128,52 @@ function __generator(thisArg, body) {
     }
 }
 
-function before(target, methodName, descriptor) {
-    return {
-        value: function () {
-            var args = [];
-            for (var _i = 0; _i < arguments.length; _i++) {
-                args[_i] = arguments[_i];
+function debuggableClass(logInfo) {
+    return function (target) {
+        return /** @class */ (function (_super) {
+            __extends(class_1, _super);
+            function class_1() {
+                var args = [];
+                for (var _i = 0; _i < arguments.length; _i++) {
+                    args[_i] = arguments[_i];
+                }
+                var _this = this;
+                console.info(logInfo + ", " + target.prototype.constructor.name + " construct start");
+                _this = _super.call(this, args) || this;
+                console.info(logInfo + ", " + target.prototype.constructor.name + " construct finished");
+                return _this;
             }
-            return descriptor.value.apply(this, args);
-        }
+            return class_1;
+        }(target));
     };
 }
-function after(target, methodName, descriptor) {
-    return {
-        value: function () {
-            var args = [];
-            for (var _i = 0; _i < arguments.length; _i++) {
-                args[_i] = arguments[_i];
-            }
-            return __awaiter(this, void 0, void 0, function () {
-                var result;
-                return __generator(this, function (_a) {
-                    switch (_a.label) {
-                        case 0: return [4 /*yield*/, descriptor.value.apply(this, args)];
-                        case 1:
-                            result = _a.sent();
-                            return [2 /*return*/, result];
-                    }
+function debuggableAsync(logInfo) {
+    return function (target, methodName, descriptor) {
+        return {
+            value: function () {
+                var args = [];
+                for (var _i = 0; _i < arguments.length; _i++) {
+                    args[_i] = arguments[_i];
+                }
+                return __awaiter(this, void 0, void 0, function () {
+                    var result;
+                    return __generator(this, function (_a) {
+                        switch (_a.label) {
+                            case 0:
+                                console.info(logInfo + ", " + target.prototype.constructor.name + " " + methodName + " start");
+                                result = descriptor.value.apply(this, args);
+                                if (!(result instanceof Promise))
+                                    result = Promise.resolve(result);
+                                return [4 /*yield*/, result];
+                            case 1:
+                                result = _a.sent();
+                                console.info(logInfo + ", " + target.prototype.constructor.name + " " + methodName + " finished");
+                                return [2 /*return*/, result];
+                        }
+                    });
                 });
-            });
-        }
+            }
+        };
     };
 }
 function replace(target, methodName, replacer, namespace) {
@@ -152,6 +204,10 @@ function reduction(target, methodName, namespace) {
 }
 
 /**
+ * 是否开启debug
+ */
+var debuggable = false;
+/**
  * cookie过期时间
  */
 var expiredays = 24 * 60 * 60 * 1000;
@@ -159,6 +215,12 @@ var expiredays = 24 * 60 * 60 * 1000;
  * 超长消息压缩阈值
  */
 var infoLenMax = 1000;
+
+var index = /*#__PURE__*/Object.freeze({
+  debuggable: debuggable,
+  expiredays: expiredays,
+  infoLenMax: infoLenMax
+});
 
 /**
  * 计数器
@@ -1338,8 +1400,13 @@ var MonitorConsumer = /** @class */ (function () {
         this._strategys.add(new ImageStrategy(options));
         this._strategys.add(new BeaconStrategy(options));
         this._strategys.add(new FetchStrategy(options));
-        while (strategys && strategys.length > 0) {
-            this._strategys.add(strategys.pop());
+        if (strategys instanceof Array) {
+            while (strategys.length > 0) {
+                this._strategys.add(strategys.pop());
+            }
+        }
+        else {
+            this._strategys.add(strategys);
         }
     };
     MonitorConsumer.prototype.canPass = function () {
@@ -1395,9 +1462,11 @@ var MonitorConsumer = /** @class */ (function () {
         });
     };
     __decorate([
-        before,
-        after
+        debuggableAsync("MonitorConsumer consume")
     ], MonitorConsumer.prototype, "consume", null);
+    MonitorConsumer = __decorate([
+        debuggableClass()
+    ], MonitorConsumer);
     return MonitorConsumer;
 }());
 
@@ -1410,13 +1479,13 @@ var Receptacle = /** @class */ (function () {
         });
     }
     Receptacle.getInstance = function (appId) {
-        if (!this.receptacle && !appId) {
+        if (!Receptacle.instance && !appId) {
             throw new Error("appid must be passed the first time to obtain the instance object!");
         }
-        if (!this.receptacle) {
-            this.receptacle = new Receptacle(appId);
+        if (!Receptacle.instance) {
+            Receptacle.instance = new Receptacle(appId);
         }
-        return this.receptacle;
+        return Receptacle.instance;
     };
     Receptacle.prototype.cleanShift = function () {
         return __awaiter(this, void 0, void 0, function () {
@@ -3022,46 +3091,16 @@ var PerformanceCollector = /** @class */ (function (_super) {
     return PerformanceCollector;
 }(AbstractCollector));
 
-var Collectors = /** @class */ (function () {
-    function Collectors() {
-        this.collectors = new Map();
-    }
-    Collectors.prototype.reigster = function (key, collector) {
-        var it = this.collectors.keys();
-        var r;
-        while (r = it.next(), !r.done) {
-            if (r.value === key) {
-                throw TypeError("the collector type \"" + key + "\" already exists\uFF01");
-            }
-        }
-        var collectorr = new collector();
-        this.collectors.set(key, collectorr);
-        collectorr.start();
-        return this;
-    };
-    Collectors.prototype.unreigster = function (key) {
-        var _a;
-        var collectorr = this.collectors.get(key);
-        if (collectorr) {
-            collectorr.stop();
-        }
-        (_a = this.collectors.get(key)) === null || _a === void 0 ? void 0 : _a.stop();
-        this.collectors.delete(key);
-        return this;
-    };
-    return Collectors;
-}());
-
-var Monitor = /** @class */ (function () {
-    function Monitor(options) {
+var MonitorLauncher = /** @class */ (function () {
+    function MonitorLauncher(options) {
         this.consumers = new DoubileLinkedList();
         typeof options === 'string' ? Receptacle.getInstance(options) : Receptacle.getInstance(options.appId);
-        this.collectors = new Collectors();
-        options.error && this.collectors.reigster("error", ErrorCollector);
-        options.uncaught && this.collectors.reigster("uncaught", UncaughtCollector);
-        options.action && this.collectors.reigster("action", ActionCollector);
-        options.pv && this.collectors.reigster("pv", PvConllector);
-        options.performance && this.collectors.reigster("performance", PerformanceCollector);
+        var collectors = Collectors.getInstance();
+        options.error && collectors.reigster("error", ErrorCollector);
+        options.uncaught && collectors.reigster("uncaught", UncaughtCollector);
+        options.action && collectors.reigster("action", ActionCollector);
+        options.pv && collectors.reigster("pv", PvConllector);
+        options.performance && collectors.reigster("performance", PerformanceCollector);
     }
     /**
      * 启动上报
@@ -3069,7 +3108,7 @@ var Monitor = /** @class */ (function () {
      * @param period 上报周期
      * @param size 一次上报埋点的数量
      */
-    Monitor.prototype.start = function (period, size) {
+    MonitorLauncher.prototype.start = function (period, size) {
         var _this = this;
         if (period === void 0) { period = 15000; }
         if (size === void 0) { size = 10; }
@@ -3105,7 +3144,7 @@ var Monitor = /** @class */ (function () {
     /**
      * 关闭上报
      */
-    Monitor.prototype.stop = function () {
+    MonitorLauncher.prototype.stop = function () {
         clearInterval(this.timer);
         this.timer = undefined;
     };
@@ -3114,13 +3153,18 @@ var Monitor = /** @class */ (function () {
      *
      * @param consumer 消费者实例
      */
-    Monitor.prototype.subscribe = function (options) {
+    MonitorLauncher.prototype.subscribe = function (options) {
         this.consumers.add(new MonitorConsumer(options));
         return this.consumers.tail().val;
     };
-    return Monitor;
+    return MonitorLauncher;
 }());
+
+var collectors = Collectors.getInstance();
 
 exports.AbstarctStrategy = AbstarctStrategy;
 exports.AbstractCollector = AbstractCollector;
-exports.Monitor = Monitor;
+exports.MonitorLauncher = MonitorLauncher;
+exports.Receptacle = Receptacle;
+exports.collectors = collectors;
+exports.config = index;
