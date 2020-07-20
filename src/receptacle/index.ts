@@ -9,7 +9,7 @@
 import localForage from 'localforage';
 
 export default class Receptacle {
-    private static receptacle ?: Receptacle;
+    private static instance ?: Receptacle;
     private forage: LocalForageDbMethodsCore & LocalForageDriverMethodsOptional;
     private shiftKeys: string[] = [];
 
@@ -21,13 +21,13 @@ export default class Receptacle {
     }
 
     public static getInstance (appId ?: string) : Receptacle {
-        if (!this.receptacle && !appId) {
+        if (!Receptacle.instance && !appId) {
             throw new Error("appid must be passed the first time to obtain the instance object!");
         }
-        if (!this.receptacle) {
-            this.receptacle = new Receptacle(appId);
+        if (!Receptacle.instance) {
+            Receptacle.instance = new Receptacle(appId);
         }
-        return this.receptacle;
+        return Receptacle.instance;
     }
 
     async cleanShift() {

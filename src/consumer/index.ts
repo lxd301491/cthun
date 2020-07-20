@@ -1,21 +1,22 @@
-import { CircuitBreaker } from "../circuitBreaker";
-import { before, after } from "../decorators/LifeCycle";
+import { debuggable, debuggableAsync, debuggableClass } from '../decorators';
 import { infoLenMax } from "../configs";
 import { AbstarctStrategy, StrategyOptions } from "./AbstarctStrategy";
 import { FetchStrategy } from "./FetchStrategy";
-
-import pako from 'pako';
 import { DoubileLinkedList } from "../doubileLinkedList";
 import { ImageStrategy } from "./ImageStrategy";
 import { BeaconStrategy } from "./BeaconStrategy";
 
+import pako from 'pako';
+
+
 export interface IConsumerOptions {
   api: string;
-  strategys?: AbstarctStrategy[];
+  strategys?: AbstarctStrategy | AbstarctStrategy[];
   gzip?: boolean;
   strategyOptions?: StrategyOptions;
 }
 
+@debuggableClass()
 export class MonitorConsumer {
   private api: string;
   private _gzip: boolean;
@@ -28,14 +29,19 @@ export class MonitorConsumer {
 
   }
 
-  private _resetStrategys (strategys: AbstarctStrategy[], options: StrategyOptions) {
+  private _resetStrategys (strategys: AbstarctStrategy | AbstarctStrategy[], options: StrategyOptions) {
     this._strategys.clear();
     this._strategys.add(new ImageStrategy(options));
     this._strategys.add(new BeaconStrategy(options));  
     this._strategys.add(new FetchStrategy(options));
-    while(strategys && strategys.length > 0) {
-      this._strategys.add(strategys.pop());
+    if (strategys instanceof Array) {
+      while(strategys.length > 0) {
+        this._strategys.add(strategys.pop());
+      }
+    } else {
+      this._strategys.add(strategys);
     }
+    
   }
 
   public canPass(): boolean {
@@ -49,8 +55,7 @@ export class MonitorConsumer {
     return false;
   }
 
-  @before
-  @after
+  @debuggableAsync("MonitorConsumer consume")
   public async consume(data: string): Promise<boolean> {
     if (!this.canPass()) return;
     let params: IUploadParams = {
@@ -76,6 +81,5 @@ export class MonitorConsumer {
       strategy = strategy.prev;
     }
     return false;
-    
   }
 }

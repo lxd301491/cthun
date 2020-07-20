@@ -1,27 +1,26 @@
-import { MonitorConsumer, IConsumerOptions } from "./consumer";
-import { ErrorCollector } from "./collectors/ErrorCollector";
-import { ActionCollector } from "./collectors/ActionCollector";
-import { UncaughtCollector } from "./collectors/UncaughtCollector";
-import { PvConllector } from "./collectors/PvCollector";
-import { PerformanceCollector } from "./collectors/PerformanceCollector";
-import { Collectors } from "./collectors";
-import Receptacle from "./receptacle";
-import { DoubileLinkedList } from "./doubileLinkedList";
+import { MonitorConsumer, IConsumerOptions } from "../consumer";
+import { ErrorCollector } from "../collectors/ErrorCollector";
+import { ActionCollector } from "../collectors/ActionCollector";
+import { UncaughtCollector } from "../collectors/UncaughtCollector";
+import { PvConllector } from "../collectors/PvCollector";
+import { PerformanceCollector } from "../collectors/PerformanceCollector";
+import { Collectors } from "../collectors";
+import Receptacle from "../receptacle";
+import { DoubileLinkedList } from "../doubileLinkedList";
 
 
-export class Monitor {
+export class MonitorLauncher {
   private consumers: DoubileLinkedList<MonitorConsumer> = new DoubileLinkedList<MonitorConsumer>();
-  public readonly collectors: Collectors;
   private timer?: number;
   
   constructor (options: IMonitorOptions) {
     typeof options === 'string' ? Receptacle.getInstance(options) : Receptacle.getInstance(options.appId);
-    this.collectors = new Collectors();
-    options.error && this.collectors.reigster("error", ErrorCollector);
-    options.uncaught && this.collectors.reigster("uncaught", UncaughtCollector);
-    options.action && this.collectors.reigster("action", ActionCollector);
-    options.pv && this.collectors.reigster("pv", PvConllector);
-    options.performance && this.collectors.reigster("performance", PerformanceCollector);
+    let collectors = Collectors.getInstance();
+    options.error && collectors.reigster("error", ErrorCollector);
+    options.uncaught && collectors.reigster("uncaught", UncaughtCollector);
+    options.action && collectors.reigster("action", ActionCollector);
+    options.pv && collectors.reigster("pv", PvConllector);
+    options.performance && collectors.reigster("performance", PerformanceCollector);
   }
 
   /**

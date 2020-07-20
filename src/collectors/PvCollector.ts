@@ -1,5 +1,5 @@
 import { AbstractCollector } from "./AbstractCollector";
-import { replace, reduction } from "../decorators/LifeCycle";
+import { replace, reduction } from "../decorators";
 import { parseUrl, dispatchCustomEvent, on, parseHash, off } from "../helpers";
 
 export class PvConllector extends AbstractCollector {

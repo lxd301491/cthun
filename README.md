@@ -25,6 +25,7 @@ const Cthun = require('cthun')
 ```
 
 ## 使用方法
+***参数类型说明***
 ```javascript
 interface IMonitorOptions {
   // appId
@@ -40,8 +41,58 @@ interface IMonitorOptions {
   pv?: boolean;
   performance?: boolean;
 }
+
+type TInfos = IMsgInfo | IPerformanceInfo | IEnvInfo | IErrorInfo | IActionInfo | IPvInfo;
 ```
+***基本使用方法***
 ```javascript
-let monitor = new Cthun.Monitor(IMonitorOptions);
+let launcher = new Cthun.MonitorLauncher(IMonitorOptions);
+let receptacle =  Cthun.Receptacle.getInstance();
+receptacle.push(TInfos)
+
+launcher.start();
 ```
 
+***声明埋点***
+```html
+<input id="input1" type="text" action-data='{"events":["click","input"]}'/>
+```
+
+## 进阶用法
+***自定义上报策略***
+```javascript
+let launcher = new Cthun.MonitorLauncher(IMonitorOptions);
+
+class CustomStrategy extends Cthun.AbstarctStrategy {
+  consume(params: IUploadParams): Promise<any> {
+    // TODO: 这里写上报策略消费逻辑
+  }
+}
+
+launcher.subscribe({
+  api: "http://localhost:8080/api",
+  // 传AbstarctStrategy子类或者子类的数组，将依次尝试数组中提供的策略
+  strategys: [new CustomStrategy({
+    breakerOptions: {
+      thresholdForOpen: '5/60',
+      idleTimeForOpen: 5 * 60,
+      thresholdForHalfOpen: '1/60'
+    }
+  })]
+});
+```
+
+***自定义收集器***
+```javascript
+class CustomCollector extends Cthun.AbstractCollector {
+  start () {
+    // TODO: 这里写收集器开始的逻辑
+  }
+
+  stop () {
+    // TODO: 这里写收集器结束的结束
+  }
+}
+
+Cthun.collectors.register("custom", CustomCollector);
+```
