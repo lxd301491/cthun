@@ -23,3 +23,25 @@ const Cthun = require('cthun')
 ```html
 <script src='./cthun.min.js' />
 ```
+
+## 使用方法
+```javascript
+interface IMonitorOptions {
+  // appId
+  appId: string;
+  // 是否持久化
+  persistence: boolean;
+  // 是否压缩
+  gzip: boolean; 
+  // 收集器
+  error?: boolean;
+  uncaught?: boolean;
+  action?: boolean;
+  pv?: boolean;
+  performance?: boolean;
+}
+```
+```javascript
+let monitor = new Cthun.Monitor(IMonitorOptions);
+```
+

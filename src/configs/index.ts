@@ -1,4 +1,3 @@
-export const timeout = 20000;
 /**
  * cookie过期时间
  */
