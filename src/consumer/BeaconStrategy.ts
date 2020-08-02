@@ -1,8 +1,7 @@
-import { AbstarctStrategy } from "./AbstarctStrategy";
+import AbstarctStrategy from "./AbstarctStrategy";
 
-
-export class BeaconStrategy extends AbstarctStrategy {
-    consume(params: IUploadParams): Promise<any> {
+export default class BeaconStrategy extends AbstarctStrategy {
+    consume(params: IConsumeParams): Promise<any> {
         if (!window || !window.navigator || "function" != typeof window.navigator.sendBeacon) {
             return Promise.reject(new Error("current enviment not support sendBeacon!"));
         }

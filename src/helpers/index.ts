@@ -1,4 +1,5 @@
-import { expiredays } from "../configs";
+import config from "../configs";
+
 
 export function getBasicInfo(): IBasicInfo {
   return {
@@ -83,7 +84,7 @@ export function getUniqueInfo() {
   if (!uni) {
     uni = randomString(10);
     var exdate = new Date();
-    exdate.setDate(exdate.getDate() + expiredays);
+    exdate.setDate(exdate.getDate() + config.expiredays);
     document.cookie = "uni=" + uni + ";domain=" + document.domain + ";path=/;expires=" + exdate.toGMTString();
   }
   return {
@@ -211,4 +212,8 @@ export function parseHash (e:string) {
 // 获取域名
 export function parseUrl (e: string) {
   return e.replace(/^(https?:)?\/\//, "").replace(/\?.*$/, "");
+}
+
+export function isProd () {
+  return config.env === 'production';
 }

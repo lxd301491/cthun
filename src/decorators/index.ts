@@ -1,12 +1,12 @@
-
+import { isProd } from "../helpers";
 
 export function debuggableClass(logInfo?: string) {
   return function<T extends {new(...args:any[]):{}}> (target: T) {
     return class extends target {
       constructor (...args: any[]) {
-        console.info(`${logInfo}, ${target.prototype.constructor.name} construct start`);
+        !isProd() && console.info(`${logInfo}, ${target.prototype.constructor.name} construct start`);
         super(args);
-        console.info(`${logInfo}, ${target.prototype.constructor.name} construct finished`);
+        !isProd() && console.info(`${logInfo}, ${target.prototype.constructor.name} construct finished`);
       }
     }
   }
@@ -17,9 +17,9 @@ export function debuggable(logInfo?: string) {
   return function (target: any, methodName: string, descriptor: PropertyDescriptor) {
     return {
       value: function(...args: any[]) {
-        console.info(`${logInfo}, ${target.prototype.constructor.name} ${methodName} start`);
+        !isProd() && console.info(`${logInfo}, ${target.constructor.name} ${methodName} start`);
         let result = descriptor.value.apply(this, args);
-        console.info(`${logInfo}, ${target.prototype.constructor.name} ${methodName} finished`);
+        !isProd() && console.info(`${logInfo}, ${target.constructor.name} ${methodName} finished`);
         return result;
       }
     }
@@ -30,11 +30,11 @@ export function debuggableAsync(logInfo?: string) {
   return function (target: any, methodName: string, descriptor: PropertyDescriptor) {
     return {
       value: async function(...args: any[]) {
-        console.info(`${logInfo}, ${target.prototype.constructor.name} ${methodName} start`);
+        !isProd() && console.info(`${target.constructor.name} ${methodName} start`);
         let result = descriptor.value.apply(this, args);
         if (!(result instanceof Promise)) result = Promise.resolve(result);
         result = await result;  
-        console.info(`${logInfo}, ${target.prototype.constructor.name} ${methodName} finished`);
+        !isProd() && console.info(`${target.constructor.name} ${methodName} finished`);
         return result;
       }
     }

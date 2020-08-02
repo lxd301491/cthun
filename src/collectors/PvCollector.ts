@@ -1,8 +1,8 @@
-import { AbstractCollector } from "./AbstractCollector";
+import AbstractCollector from "./AbstractCollector";
 import { replace, reduction } from "../decorators";
 import { parseUrl, dispatchCustomEvent, on, parseHash, off } from "../helpers";
 
-export class PvConllector extends AbstractCollector {
+export default class PvConllector extends AbstractCollector {
   hackState(e: 'pushState' | 'replaceState') {
     replace(history, e, function (data: any, title: string, url?: string | null) {
       // 调用pushState或replaceState时hack Onpopstate
@@ -22,7 +22,7 @@ export class PvConllector extends AbstractCollector {
             v = h[1] && h[1].replace(/^\/?(.*)/, "$1");
         p !== d ? dispatchCustomEvent("historystatechanged", d) : g !== v && dispatchCustomEvent("historystatechanged", v)
       } catch (m) {
-        console.log("[retcode] error in " + e + ": " + m)
+        console.error("[retcode] error in " + e + ": " + m)
       }
       return f
     });
@@ -63,8 +63,6 @@ export class PvConllector extends AbstractCollector {
     on('hashchange', this.handleHashchange.bind(this));
     on('historystatechanged', this.handleHistorystatechange.bind(this));
     this.collect();
-
-    this.isRunning = true;
   }
 
   stop(): void {
@@ -72,7 +70,5 @@ export class PvConllector extends AbstractCollector {
     this.dehackState('replaceState');
     off('hashchange', this.handleHashchange.bind(this));
     off('historystatechanged', this.handleHistorystatechange.bind(this));
-
-    this.isRunning = false;
   }
 }

@@ -171,9 +171,8 @@ interface IActionInfo extends IMsgInfo {
   c?: number
 }
 
-interface IUploadParams {
+interface IConsumeParams {
   api: string;
   data: string;
-  zip?: boolean;
   [propName: string]: any;
 }

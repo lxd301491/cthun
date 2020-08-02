@@ -1,9 +1,7 @@
 import Receptacle from "../receptacle";
 import { getBasicInfo, getConnection } from "../helpers";
 
-export abstract class AbstractCollector {
-  protected isRunning: boolean = false;
-
+export default abstract class AbstractCollector {
   collect(params): void {
     params = {
       ...getBasicInfo(),

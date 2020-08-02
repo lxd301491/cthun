@@ -1,7 +1,7 @@
-import { AbstractCollector } from "./AbstractCollector";
+import AbstractCollector from "./AbstractCollector";
 import { on, off } from "../helpers";
 
-export class ErrorCollector extends AbstractCollector {
+export default class ErrorCollector extends AbstractCollector {
   private listener (evt: ErrorEvent) {
     evt.stopPropagation();
     evt.preventDefault();
@@ -56,12 +56,8 @@ export class ErrorCollector extends AbstractCollector {
 
   start(): void {
     on("error", this.listener.bind(this));
-
-    this.isRunning = true;
   }
   stop(): void {
     off("error", this.listener.bind(this));
-    
-    this.isRunning = false;
   }
 }

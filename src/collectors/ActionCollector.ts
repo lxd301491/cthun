@@ -1,4 +1,4 @@
-import { AbstractCollector } from "./AbstractCollector";
+import AbstractCollector from "./AbstractCollector";
 import { plainToClass } from "class-transformer";
 
 class actionData<K extends keyof GlobalEventHandlersEventMap>{
@@ -11,7 +11,7 @@ interface NodeEventHandler<K extends keyof GlobalEventHandlersEventMap> {
   handler: (evt: GlobalEventHandlersEventMap[K]) => void
 }
 
-export class ActionCollector<K extends keyof GlobalEventHandlersEventMap> extends AbstractCollector {
+export default class ActionCollector<K extends keyof GlobalEventHandlersEventMap> extends AbstractCollector {
   private observer: MutationObserver;
   private nodes: Set<NodeEventHandler<K>> = new Set<NodeEventHandler<K>>();
 
@@ -132,8 +132,6 @@ export class ActionCollector<K extends keyof GlobalEventHandlersEventMap> extend
       attributes: true,
       attributeFilter: ["action-data"]
     });
-    
-    this.isRunning = true;
   }
 
   stop(): void {
@@ -145,7 +143,5 @@ export class ActionCollector<K extends keyof GlobalEventHandlersEventMap> extend
     this.observer.disconnect();
     this.observer.takeRecords();
     delete this.observer;
-    
-    this.isRunning = false;
   }
 }

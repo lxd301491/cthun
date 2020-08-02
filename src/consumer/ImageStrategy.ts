@@ -1,7 +1,7 @@
-import { AbstarctStrategy } from "./AbstarctStrategy";
+import AbstarctStrategy from "./AbstarctStrategy";
 
-export class ImageStrategy extends AbstarctStrategy {
-    consume(params: IUploadParams): Promise<any> {
+export default class ImageStrategy extends AbstarctStrategy {
+    consume(params: IConsumeParams): Promise<any> {
         let img = new Image(1, 1);
         return new Promise((resolve, reject) => {
           img.onerror = (err) => {

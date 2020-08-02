@@ -27,6 +27,7 @@ const inputOptions = {
       browser: true,
       preferBuiltins:true
     }),
+    // babel(),
     builtins(),
     commonjs({
       include: 'node_modules/**',

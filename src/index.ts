@@ -1,19 +1,38 @@
-import { Collectors } from './collectors/index';
 import { MonitorLauncher } from "./launcher";
-import { AbstractCollector } from './collectors/AbstractCollector';
-import { AbstarctStrategy } from './consumer/AbstarctStrategy';
+
 import Receptacle from './receptacle';
-import * as config from './configs';
+import config from './configs';
 
-let collectors = Collectors.getInstance();
+import AbstarctStrategy from './consumer/AbstarctStrategy';
+import BeaconStrategy from './consumer/BeaconStrategy';
+import FetchStrategy from './consumer/FetchStrategy';
+import ImageStrategy from './consumer/ImageStrategy';
 
-export {
+import AbstractCollector from './collectors/AbstractCollector';
+import ErrorCollector from "./collectors/ErrorCollector";
+import ActionCollector from "./collectors/ActionCollector";
+import UncaughtCollector from "./collectors/UncaughtCollector";
+import PvConllector from "./collectors/PvCollector";
+import PerformanceCollector from "./collectors/PerformanceCollector";
+
+export default {
+  config,
   MonitorLauncher,
   Receptacle,
-  AbstractCollector,
   AbstarctStrategy,
-  config,
-  collectors
+  AbstractCollector,
+  strategys: {
+    BeaconStrategy,
+    FetchStrategy,
+    ImageStrategy
+  },
+  collectors: {
+    ErrorCollector, 
+    UncaughtCollector,
+    ActionCollector,
+    PvConllector,
+    PerformanceCollector
+  }
 };
 
 

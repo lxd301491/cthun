@@ -1,48 +1,9 @@
 'use strict';
 
-Object.defineProperty(exports, '__esModule', { value: true });
-
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-var axios = _interopDefault(require('axios'));
-var pako = _interopDefault(require('pako'));
 var localForage = _interopDefault(require('localforage'));
-
-var Collectors = /** @class */ (function () {
-    function Collectors() {
-        this.collectors = new Map();
-    }
-    Collectors.getInstance = function () {
-        if (!Collectors.instance) {
-            Collectors.instance = new Collectors();
-        }
-        return Collectors.instance;
-    };
-    Collectors.prototype.reigster = function (key, collector) {
-        var it = this.collectors.keys();
-        var r;
-        while (r = it.next(), !r.done) {
-            if (r.value === key) {
-                throw TypeError("the collector type \"" + key + "\" already exists\uFF01");
-            }
-        }
-        var collectorr = new collector();
-        this.collectors.set(key, collectorr);
-        collectorr.start();
-        return this;
-    };
-    Collectors.prototype.unreigster = function (key) {
-        var _a;
-        var collectorr = this.collectors.get(key);
-        if (collectorr) {
-            collectorr.stop();
-        }
-        (_a = this.collectors.get(key)) === null || _a === void 0 ? void 0 : _a.stop();
-        this.collectors.delete(key);
-        return this;
-    };
-    return Collectors;
-}());
+var axios = _interopDefault(require('axios'));
 
 /*! *****************************************************************************
 Copyright (c) Microsoft Corporation. All rights reserved.
@@ -128,25 +89,170 @@ function __generator(thisArg, body) {
     }
 }
 
-function debuggableClass(logInfo) {
-    return function (target) {
-        return /** @class */ (function (_super) {
-            __extends(class_1, _super);
-            function class_1() {
-                var args = [];
-                for (var _i = 0; _i < arguments.length; _i++) {
-                    args[_i] = arguments[_i];
-                }
-                var _this = this;
-                console.info(logInfo + ", " + target.prototype.constructor.name + " construct start");
-                _this = _super.call(this, args) || this;
-                console.info(logInfo + ", " + target.prototype.constructor.name + " construct finished");
-                return _this;
-            }
-            return class_1;
-        }(target));
+var config = {
+    env: 'production',
+    /**
+     * cookie过期时间
+     */
+    expiredays: 24 * 60 * 60 * 1000,
+    /**
+     * 超长消息压缩阈值
+     */
+    infoLenMax: 1000
+};
+
+function getBasicInfo() {
+    return __assign(__assign(__assign({}, getUniqueInfo()), getConnection()), { page: window.location.href, uId: getCookie("uId") || "", rId: getCookie("rId") || "", 
+        // 设备号
+        dId: getCookie("deviceId") || "", 
+        // 设备类型
+        dt: getCookie("deviceType") || "", 
+        // 系统
+        sys: getCookie("sys") || "", 
+        //系统版本
+        sv: getCookie("sysVersion") || "", 
+        //设备宽度像素
+        sw: getScreen().w, 
+        // 设备高度像素
+        sh: getScreen().h, 
+        // 当前版本号
+        v: '0.0.1' });
+}
+// 获取屏幕宽高
+function getScreen() {
+    return {
+        w: document.documentElement.clientWidth || document.body.clientWidth,
+        h: document.documentElement.clientHeight || document.body.clientHeight
     };
 }
+/**
+ * 获取随机数 例子:Ab23cD_1546313114
+ * @param len 长度
+ */
+function randomString(len) {
+    len = len || 10;
+    var $chars = 'ABCDEFGHJKMNPQRSTWXYZabcdefhijkmnprstwxyz123456789';
+    var maxPos = $chars.length;
+    var pwd = '';
+    for (var i = 0; i < len; i++) {
+        pwd = pwd + $chars.charAt(Math.floor(Math.random() * maxPos));
+    }
+    return pwd + "_" + new Date().getTime();
+}
+/**
+ * 获取cookie
+ */
+function getCookie(name) {
+    var arr, reg = new RegExp("(^| )" + name + "=([^;]*)(;|$)");
+    if (arr = document.cookie.match(reg))
+        return (arr[2]);
+    else
+        return null;
+}
+/**
+ * 获取页面的唯一标识
+ */
+function getUniqueInfo() {
+    var uni = getCookie("uni");
+    if (!uni) {
+        uni = randomString(10);
+        var exdate = new Date();
+        exdate.setDate(exdate.getDate() + config.expiredays);
+        document.cookie = "uni=" + uni + ";domain=" + document.domain + ";path=/;expires=" + exdate.toGMTString();
+    }
+    return {
+        uni: uni
+    };
+}
+/**
+ * 统计页面性能
+ */
+function perforPage() {
+    if (!window.performance)
+        return {};
+    var timing = performance.timing;
+    return {
+        // DNS解析时间
+        dnst: timing.domainLookupEnd - timing.domainLookupStart || 0,
+        //TCP建立时间
+        tcpt: timing.connectEnd - timing.connectStart || 0,
+        // 白屏时间  
+        wit: timing.responseStart - timing.navigationStart || 0,
+        //dom渲染完成时间
+        domt: timing.domContentLoadedEventEnd - timing.navigationStart || 0,
+        //页面onload时间
+        lodt: timing.loadEventEnd - timing.navigationStart || 0,
+        // 页面准备时间 
+        radt: timing.fetchStart - timing.navigationStart || 0,
+        // 页面重定向时间
+        rdit: timing.redirectEnd - timing.redirectStart || 0,
+        // unload时间
+        uodt: timing.unloadEventEnd - timing.unloadEventStart || 0,
+        //request请求耗时
+        reqt: timing.responseEnd - timing.requestStart || 0,
+        //页面解析dom耗时
+        andt: timing.domComplete - timing.domInteractive || 0,
+    };
+}
+/**
+ * 获取网络情况
+ */
+function getConnection() {
+    var connection = navigator.connection;
+    if (!connection) {
+        return {
+            ct: navigator.onLine ? "online" : "offline"
+        };
+    }
+    var rtt = connection.rtt, downlink = connection.downlink, effectiveType = connection.effectiveType, saveData = connection.saveData;
+    return {
+        // 有效网络连接类型
+        ct: effectiveType,
+        // 估算的下行速度/带宽
+        cs: downlink + "Mb/s",
+        // 估算的往返时间
+        cr: rtt + "ms",
+        // 打开/请求数据保护模式
+        csa: saveData
+    };
+}
+// 监听事件
+function on(event, listener) {
+    window.addEventListener && window.addEventListener(event, function eventHandle(ev) {
+        listener.call(this, ev);
+    }, true);
+    window.attachEvent && window.attachEvent("on" + event, function eventHandle(ev) {
+        listener.call(this, ev);
+    });
+}
+// 取消监听事件
+function off(event, listener) {
+    window.removeEventListener && window.removeEventListener(event, listener);
+    window.detachEvent && window.detachEvent(event, listener);
+}
+// 自定义事件，并dispatch
+function dispatchCustomEvent(e, t) {
+    var r;
+    CustomEvent
+        ? r = new CustomEvent(e, {
+            detail: t
+        })
+        : ((r = window.document.createEvent("HTMLEvents")).initEvent(e, !1, !0),
+            r.detail = t);
+    window.dispatchEvent(r);
+}
+// 获取hash值
+function parseHash(e) {
+    return (e ? parseUrl(e.replace(/^#\/?/, "")) : "") || "[index]";
+}
+// 获取域名
+function parseUrl(e) {
+    return e.replace(/^(https?:)?\/\//, "").replace(/\?.*$/, "");
+}
+function isProd() {
+    return config.env === 'production';
+}
+
 function debuggableAsync(logInfo) {
     return function (target, methodName, descriptor) {
         return {
@@ -160,14 +266,14 @@ function debuggableAsync(logInfo) {
                     return __generator(this, function (_a) {
                         switch (_a.label) {
                             case 0:
-                                console.info(logInfo + ", " + target.prototype.constructor.name + " " + methodName + " start");
+                                !isProd() && console.info(target.constructor.name + " " + methodName + " start");
                                 result = descriptor.value.apply(this, args);
                                 if (!(result instanceof Promise))
                                     result = Promise.resolve(result);
                                 return [4 /*yield*/, result];
                             case 1:
                                 result = _a.sent();
-                                console.info(logInfo + ", " + target.prototype.constructor.name + " " + methodName + " finished");
+                                !isProd() && console.info(target.constructor.name + " " + methodName + " finished");
                                 return [2 /*return*/, result];
                         }
                     });
@@ -203,24 +309,411 @@ function reduction(target, methodName, namespace) {
     }
 }
 
-/**
- * 是否开启debug
- */
-var debuggable = false;
-/**
- * cookie过期时间
- */
-var expiredays = 24 * 60 * 60 * 1000;
-/**
- * 超长消息压缩阈值
- */
-var infoLenMax = 1000;
+var ListNode = /** @class */ (function () {
+    function ListNode(val) {
+        this._val = val;
+        this._prev = null;
+        this._next = null;
+    }
+    Object.defineProperty(ListNode.prototype, "val", {
+        get: function () {
+            return this._val;
+        },
+        set: function (val) {
+            this._val = val;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(ListNode.prototype, "prev", {
+        get: function () {
+            return this._prev;
+        },
+        set: function (prev) {
+            this._prev = prev;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(ListNode.prototype, "next", {
+        get: function () {
+            return this._next;
+        },
+        set: function (next) {
+            this._next = next;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    ListNode.prototype.hasPrev = function () {
+        return !!this._prev;
+    };
+    ListNode.prototype.hasNext = function () {
+        return !!this._next;
+    };
+    return ListNode;
+}());
 
-var index = /*#__PURE__*/Object.freeze({
-  debuggable: debuggable,
-  expiredays: expiredays,
-  infoLenMax: infoLenMax
-});
+var DoubileLinkedList = /** @class */ (function () {
+    function DoubileLinkedList() {
+        this._count = 0; //记录元素个数
+        this._header = new ListNode(null);
+        this._tail = new ListNode(null);
+        this._header.next = this._tail;
+        this._tail.prev = this._header;
+    }
+    DoubileLinkedList.prototype._remove = function (prev, next, val) {
+        var node = new ListNode(val);
+        prev.next = node.next;
+        next.prev = node.prev;
+        this._count--;
+        return val;
+    };
+    DoubileLinkedList.prototype._add = function (prev, next, val) {
+        var node = new ListNode(val);
+        prev.next = node;
+        node.prev = prev;
+        next.prev = node;
+        node.next = next;
+        this._count++;
+    };
+    // 尾部插入一个元素
+    DoubileLinkedList.prototype.add = function (a) {
+        this._add(this._tail.prev, this._tail, a);
+    };
+    // 中间插入一个元素
+    DoubileLinkedList.prototype.insert = function (node, a) {
+        if (this.empty()) {
+            return;
+        }
+        var prevNode = this._header.next;
+        while (prevNode != this._tail) {
+            if (prevNode.val == node) {
+                this._add(prevNode, prevNode.next, a);
+                break;
+            }
+            prevNode = prevNode.next;
+        }
+    };
+    // 删除指定元素
+    DoubileLinkedList.prototype.remove = function (a) {
+        if (this.empty()) {
+            return;
+        }
+        var targetNode = this._header.next;
+        while (targetNode !== this._tail) {
+            if (targetNode.val == a) {
+                var value = this._remove(targetNode.prev, targetNode.next, targetNode.val);
+                targetNode.next = null;
+                targetNode.prev = null;
+                return value;
+            }
+            targetNode = targetNode.next;
+        }
+    };
+    DoubileLinkedList.prototype.header = function () {
+        return this._header.next;
+    };
+    DoubileLinkedList.prototype.tail = function () {
+        return this._tail;
+    };
+    DoubileLinkedList.prototype.find = function (a) {
+        if (this.empty()) {
+            return;
+        }
+        var targetNode = this._header.next;
+        while (targetNode !== this._tail) {
+            if (targetNode.val == a) {
+                return targetNode;
+            }
+            targetNode = targetNode.next;
+        }
+        return null;
+    };
+    DoubileLinkedList.prototype.reverse_find = function (a) {
+        if (this.empty()) {
+            return;
+        }
+        var targetNode = this._tail.prev;
+        while (targetNode !== this._tail) {
+            if (targetNode.val == a) {
+                return targetNode;
+            }
+            targetNode = targetNode.prev;
+        }
+        return null;
+    };
+    DoubileLinkedList.prototype.size = function () {
+        return this._count;
+    };
+    DoubileLinkedList.prototype.empty = function () {
+        return this._count === 0;
+    };
+    DoubileLinkedList.prototype.clear = function () {
+        var node = this._header.next;
+        while (node !== this._tail) {
+            node.prev = null;
+            node.val = null;
+            node = node.next;
+            node.prev.next = null;
+        }
+        this._header.next = this._tail;
+        this._tail.prev = this._header;
+        this._count = 0;
+    };
+    return DoubileLinkedList;
+}());
+
+var MonitorConsumer = /** @class */ (function () {
+    function MonitorConsumer(options) {
+        this._strategys = new DoubileLinkedList();
+        this._strategy = this._strategys.header();
+        this._api = options.api;
+        this.beforeConsume = options.beforeConsume;
+    }
+    MonitorConsumer.prototype.registerStrategy = function (strategy) {
+        this._strategys.add(strategy);
+        return this;
+    };
+    MonitorConsumer.prototype.removeStrategy = function (strategy) {
+        this._strategys.remove(strategy);
+        return this;
+    };
+    MonitorConsumer.prototype.consume = function (data) {
+        return __awaiter(this, void 0, void 0, function () {
+            var params, _a;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        if (this.beforeConsume) {
+                            data = this.beforeConsume(data);
+                        }
+                        params = {
+                            api: this._api,
+                            data: data
+                        };
+                        this._strategy = this._strategy == this._strategys.tail() ? this._strategys.header() : this._strategy;
+                        _a = this._strategy.val;
+                        if (!_a) return [3 /*break*/, 2];
+                        return [4 /*yield*/, this._strategy.val.consume(params)];
+                    case 1:
+                        _a = !(_b.sent());
+                        _b.label = 2;
+                    case 2:
+                        if (!_a) return [3 /*break*/, 7];
+                        this._strategy = this._strategys.header();
+                        _b.label = 3;
+                    case 3:
+                        if (!this._strategy.hasNext()) return [3 /*break*/, 6];
+                        if (!(this._strategy.val && this._strategy.val.canPass())) return [3 /*break*/, 5];
+                        return [4 /*yield*/, this._strategy.val.consume(params)];
+                    case 4:
+                        if (_b.sent()) {
+                            return [2 /*return*/, true];
+                        }
+                        this._strategy = this._strategy.next;
+                        _b.label = 5;
+                    case 5: return [3 /*break*/, 3];
+                    case 6: return [2 /*return*/, false];
+                    case 7: return [2 /*return*/, true];
+                }
+            });
+        });
+    };
+    __decorate([
+        debuggableAsync()
+    ], MonitorConsumer.prototype, "consume", null);
+    return MonitorConsumer;
+}());
+
+var Receptacle = /** @class */ (function () {
+    function Receptacle(appId) {
+        this.shiftKeys = [];
+        this.forage = localForage.createInstance({
+            name: appId,
+            storeName: appId
+        });
+    }
+    Receptacle.getInstance = function (appId) {
+        if (!Receptacle.instance && !appId) {
+            throw new Error("appid must be passed the first time to obtain the instance object!");
+        }
+        if (!Receptacle.instance) {
+            Receptacle.instance = new Receptacle(appId);
+        }
+        return Receptacle.instance;
+    };
+    Receptacle.prototype.cleanShift = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        if (!(this.shiftKeys.length > 0)) return [3 /*break*/, 2];
+                        return [4 /*yield*/, this.forage.removeItem(this.shiftKeys.pop())];
+                    case 1:
+                        _a.sent();
+                        return [3 /*break*/, 0];
+                    case 2:
+                        this.shiftKeys = [];
+                        return [2 /*return*/];
+                }
+            });
+        });
+    };
+    Receptacle.prototype.shift = function (size, immediate) {
+        if (immediate === void 0) { immediate = true; }
+        return __awaiter(this, void 0, void 0, function () {
+            var items, keys, key, _a, _b;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
+                    case 0:
+                        items = [];
+                        return [4 /*yield*/, this.keys()];
+                    case 1:
+                        keys = _c.sent();
+                        _c.label = 2;
+                    case 2:
+                        if (!(size && keys.length > 0)) return [3 /*break*/, 4];
+                        key = keys.shift() || "";
+                        _b = (_a = items).push;
+                        return [4 /*yield*/, this.forage.getItem(key)];
+                    case 3:
+                        _b.apply(_a, [_c.sent()]);
+                        this.shiftKeys.push(key);
+                        size--;
+                        return [3 /*break*/, 2];
+                    case 4:
+                        if (!immediate) return [3 /*break*/, 6];
+                        return [4 /*yield*/, this.cleanShift()];
+                    case 5:
+                        _c.sent();
+                        _c.label = 6;
+                    case 6: return [2 /*return*/, items];
+                }
+            });
+        });
+    };
+    Receptacle.prototype.push = function (item) {
+        return __awaiter(this, void 0, void 0, function () {
+            var key;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        key = new Date().getTime() + "";
+                        return [4 /*yield*/, this.forage.setItem(key, item)];
+                    case 1:
+                        _a.sent();
+                        return [2 /*return*/];
+                }
+            });
+        });
+    };
+    Receptacle.prototype.length = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, this.forage.length()];
+                    case 1: return [2 /*return*/, _a.sent()];
+                }
+            });
+        });
+    };
+    Receptacle.prototype.clear = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, this.forage.clear()];
+                    case 1: return [2 /*return*/, _a.sent()];
+                }
+            });
+        });
+    };
+    Receptacle.prototype.keys = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, this.forage.keys()];
+                    case 1: return [2 /*return*/, _a.sent()];
+                }
+            });
+        });
+    };
+    Receptacle.prototype.iterate = function (iteratee) {
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, this.forage.iterate(iteratee)];
+                    case 1: return [2 /*return*/, _a.sent()];
+                }
+            });
+        });
+    };
+    return Receptacle;
+}());
+
+var MonitorLauncher = /** @class */ (function () {
+    function MonitorLauncher(options) {
+        this.consumers = new DoubileLinkedList();
+        typeof options === 'string' ? Receptacle.getInstance(options) : Receptacle.getInstance(options.appId);
+    }
+    /**
+     * 启动上报
+     *
+     * @param period 上报周期
+     * @param size 一次上报埋点的数量
+     */
+    MonitorLauncher.prototype.start = function (period, size) {
+        var _this = this;
+        if (period === void 0) { period = 15000; }
+        if (size === void 0) { size = 10; }
+        if (this.timer)
+            clearInterval(this.timer);
+        this.timer = window.setInterval(function () { return __awaiter(_this, void 0, void 0, function () {
+            var consumer, data;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        if (!(this.consumers.size() > 0)) return [3 /*break*/, 6];
+                        consumer = this.consumers.header();
+                        return [4 /*yield*/, Receptacle.getInstance().shift(size, false)];
+                    case 1:
+                        data = _a.sent();
+                        _a.label = 2;
+                    case 2:
+                        if (!(consumer.hasNext() && data.length > -1)) return [3 /*break*/, 6];
+                        return [4 /*yield*/, consumer.val.consume(typeof data === 'string' ? data : JSON.stringify(data))];
+                    case 3:
+                        if (!_a.sent()) return [3 /*break*/, 5];
+                        return [4 /*yield*/, Receptacle.getInstance().cleanShift()];
+                    case 4:
+                        _a.sent();
+                        _a.label = 5;
+                    case 5:
+                        consumer = consumer.next;
+                        return [3 /*break*/, 2];
+                    case 6: return [2 /*return*/];
+                }
+            });
+        }); }, period);
+    };
+    /**
+     * 关闭上报
+     */
+    MonitorLauncher.prototype.stop = function () {
+        clearInterval(this.timer);
+        this.timer = undefined;
+    };
+    /**
+     * 注册消费者
+     *
+     * @param consumer 消费者实例
+     */
+    MonitorLauncher.prototype.subscribe = function (options) {
+        this.consumers.add(new MonitorConsumer(options));
+        return this.consumers.tail().val;
+    };
+    return MonitorLauncher;
+}());
 
 /**
  * 计数器
@@ -383,6 +876,26 @@ var AbstarctStrategy = /** @class */ (function () {
     };
     return AbstarctStrategy;
 }());
+
+var BeaconStrategy = /** @class */ (function (_super) {
+    __extends(BeaconStrategy, _super);
+    function BeaconStrategy() {
+        return _super !== null && _super.apply(this, arguments) || this;
+    }
+    BeaconStrategy.prototype.consume = function (params) {
+        if (!window || !window.navigator || "function" != typeof window.navigator.sendBeacon) {
+            return Promise.reject(new Error("current enviment not support sendBeacon!"));
+        }
+        var paramsForm = new FormData();
+        for (var key in params) {
+            paramsForm.append(key, params[key]);
+        }
+        return new Promise(function (resolve, reject) {
+            window.navigator.sendBeacon(params.api, paramsForm) ? resolve() : reject();
+        });
+    };
+    return BeaconStrategy;
+}(AbstarctStrategy));
 
 var has = Object.prototype.hasOwnProperty;
 var isArray = Array.isArray;
@@ -1186,161 +1699,6 @@ var FetchStrategy = /** @class */ (function (_super) {
     return FetchStrategy;
 }(AbstarctStrategy));
 
-var ListNode = /** @class */ (function () {
-    function ListNode(val) {
-        this._val = val;
-        this._prev = null;
-        this._next = null;
-    }
-    Object.defineProperty(ListNode.prototype, "val", {
-        get: function () {
-            return this._val;
-        },
-        set: function (val) {
-            this._val = val;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ListNode.prototype, "prev", {
-        get: function () {
-            return this._prev;
-        },
-        set: function (prev) {
-            this._prev = prev;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ListNode.prototype, "next", {
-        get: function () {
-            return this._next;
-        },
-        set: function (next) {
-            this._next = next;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    ListNode.prototype.hasPrev = function () {
-        return !!this._prev;
-    };
-    ListNode.prototype.hasNext = function () {
-        return !!this._next;
-    };
-    return ListNode;
-}());
-
-var DoubileLinkedList = /** @class */ (function () {
-    function DoubileLinkedList() {
-        this._count = 0; //记录元素个数
-        this._header = new ListNode(null);
-        this._tail = new ListNode(null);
-        this._header.next = this._tail;
-        this._tail.prev = this._header;
-    }
-    DoubileLinkedList.prototype._remove = function (prev, next, val) {
-        var node = new ListNode(val);
-        prev.next = node.next;
-        next.prev = node.prev;
-        this._count--;
-        return val;
-    };
-    DoubileLinkedList.prototype._add = function (prev, next, val) {
-        var node = new ListNode(val);
-        prev.next = node;
-        node.prev = prev;
-        next.prev = node;
-        node.next = next;
-        this._count++;
-    };
-    // 尾部插入一个元素
-    DoubileLinkedList.prototype.add = function (a) {
-        this._add(this._tail.prev, this._tail, a);
-    };
-    // 中间插入一个元素
-    DoubileLinkedList.prototype.insert = function (node, a) {
-        if (this.empty()) {
-            return;
-        }
-        var prevNode = this._header.next;
-        while (prevNode != this._tail) {
-            if (prevNode.val == node) {
-                this._add(prevNode, prevNode.next, a);
-                break;
-            }
-            prevNode = prevNode.next;
-        }
-    };
-    // 删除指定元素
-    DoubileLinkedList.prototype.remove = function (a) {
-        if (this.empty()) {
-            return;
-        }
-        var targetNode = this._header.next;
-        while (targetNode !== this._tail) {
-            if (targetNode.val == a) {
-                var value = this._remove(targetNode.prev, targetNode.next, targetNode.val);
-                targetNode.next = null;
-                targetNode.prev = null;
-                return value;
-            }
-            targetNode = targetNode.next;
-        }
-    };
-    DoubileLinkedList.prototype.header = function () {
-        return this._header.next;
-    };
-    DoubileLinkedList.prototype.tail = function () {
-        return this._tail;
-    };
-    DoubileLinkedList.prototype.find = function (a) {
-        if (this.empty()) {
-            return;
-        }
-        var targetNode = this._header.next;
-        while (targetNode !== this._tail) {
-            if (targetNode.val == a) {
-                return targetNode;
-            }
-            targetNode = targetNode.next;
-        }
-        return null;
-    };
-    DoubileLinkedList.prototype.reverse_find = function (a) {
-        if (this.empty()) {
-            return;
-        }
-        var targetNode = this._tail.prev;
-        while (targetNode !== this._tail) {
-            if (targetNode.val == a) {
-                return targetNode;
-            }
-            targetNode = targetNode.prev;
-        }
-        return null;
-    };
-    DoubileLinkedList.prototype.size = function () {
-        return this._count;
-    };
-    DoubileLinkedList.prototype.empty = function () {
-        return this._count === 0;
-    };
-    DoubileLinkedList.prototype.clear = function () {
-        var node = this._header.next;
-        while (node !== this._tail) {
-            node.prev = null;
-            node.val = null;
-            node = node.next;
-            node.prev.next = null;
-        }
-        this._header.next = this._tail;
-        this._tail.prev = this._header;
-        this._count = 0;
-    };
-    return DoubileLinkedList;
-}());
-
 var ImageStrategy = /** @class */ (function (_super) {
     __extends(ImageStrategy, _super);
     function ImageStrategy() {
@@ -1368,385 +1726,8 @@ var ImageStrategy = /** @class */ (function (_super) {
     return ImageStrategy;
 }(AbstarctStrategy));
 
-var BeaconStrategy = /** @class */ (function (_super) {
-    __extends(BeaconStrategy, _super);
-    function BeaconStrategy() {
-        return _super !== null && _super.apply(this, arguments) || this;
-    }
-    BeaconStrategy.prototype.consume = function (params) {
-        if (!window || !window.navigator || "function" != typeof window.navigator.sendBeacon) {
-            return Promise.reject(new Error("current enviment not support sendBeacon!"));
-        }
-        var paramsForm = new FormData();
-        for (var key in params) {
-            paramsForm.append(key, params[key]);
-        }
-        return new Promise(function (resolve, reject) {
-            window.navigator.sendBeacon(params.api, paramsForm) ? resolve() : reject();
-        });
-    };
-    return BeaconStrategy;
-}(AbstarctStrategy));
-
-var MonitorConsumer = /** @class */ (function () {
-    function MonitorConsumer(options) {
-        this._strategys = new DoubileLinkedList();
-        this.api = options.api;
-        this._resetStrategys(options.strategys, options.strategyOptions);
-        this._gzip = options.gzip;
-    }
-    MonitorConsumer.prototype._resetStrategys = function (strategys, options) {
-        this._strategys.clear();
-        this._strategys.add(new ImageStrategy(options));
-        this._strategys.add(new BeaconStrategy(options));
-        this._strategys.add(new FetchStrategy(options));
-        if (strategys instanceof Array) {
-            while (strategys.length > 0) {
-                this._strategys.add(strategys.pop());
-            }
-        }
-        else {
-            this._strategys.add(strategys);
-        }
-    };
-    MonitorConsumer.prototype.canPass = function () {
-        var node = this._strategys.tail();
-        while (node.hasPrev()) {
-            if (node.val && node.val.canPass()) {
-                return true;
-            }
-            node = node.prev;
-        }
-        return false;
-    };
-    MonitorConsumer.prototype.consume = function (data) {
-        return __awaiter(this, void 0, void 0, function () {
-            var params, strategy, err_1;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        if (!this.canPass())
-                            return [2 /*return*/];
-                        params = {
-                            api: this.api,
-                            data: encodeURIComponent(data)
-                        };
-                        if (this._gzip && params.data.length > infoLenMax) {
-                            console.log("data length before gzip " + params.data.length);
-                            params.data = pako.gzip(params.data, { to: "string" });
-                            console.log("data length after gzip " + params.data.length);
-                            params.gzip = true;
-                        }
-                        strategy = this._strategys.tail();
-                        _a.label = 1;
-                    case 1:
-                        if (!strategy.hasPrev()) return [3 /*break*/, 6];
-                        if (!(strategy.val && strategy.val.canPass())) return [3 /*break*/, 5];
-                        _a.label = 2;
-                    case 2:
-                        _a.trys.push([2, 4, , 5]);
-                        return [4 /*yield*/, strategy.val.consume(params)];
-                    case 3:
-                        _a.sent();
-                        return [2 /*return*/, true];
-                    case 4:
-                        err_1 = _a.sent();
-                        strategy.val.count();
-                        return [3 /*break*/, 5];
-                    case 5:
-                        strategy = strategy.prev;
-                        return [3 /*break*/, 1];
-                    case 6: return [2 /*return*/, false];
-                }
-            });
-        });
-    };
-    __decorate([
-        debuggableAsync("MonitorConsumer consume")
-    ], MonitorConsumer.prototype, "consume", null);
-    MonitorConsumer = __decorate([
-        debuggableClass()
-    ], MonitorConsumer);
-    return MonitorConsumer;
-}());
-
-var Receptacle = /** @class */ (function () {
-    function Receptacle(appId) {
-        this.shiftKeys = [];
-        this.forage = localForage.createInstance({
-            name: appId,
-            storeName: appId
-        });
-    }
-    Receptacle.getInstance = function (appId) {
-        if (!Receptacle.instance && !appId) {
-            throw new Error("appid must be passed the first time to obtain the instance object!");
-        }
-        if (!Receptacle.instance) {
-            Receptacle.instance = new Receptacle(appId);
-        }
-        return Receptacle.instance;
-    };
-    Receptacle.prototype.cleanShift = function () {
-        return __awaiter(this, void 0, void 0, function () {
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        if (!(this.shiftKeys.length > 0)) return [3 /*break*/, 2];
-                        return [4 /*yield*/, this.forage.removeItem(this.shiftKeys.pop())];
-                    case 1:
-                        _a.sent();
-                        return [3 /*break*/, 0];
-                    case 2:
-                        this.shiftKeys = [];
-                        return [2 /*return*/];
-                }
-            });
-        });
-    };
-    Receptacle.prototype.shift = function (size, immediate) {
-        if (immediate === void 0) { immediate = true; }
-        return __awaiter(this, void 0, void 0, function () {
-            var items, keys, key, _a, _b;
-            return __generator(this, function (_c) {
-                switch (_c.label) {
-                    case 0:
-                        items = [];
-                        return [4 /*yield*/, this.keys()];
-                    case 1:
-                        keys = _c.sent();
-                        _c.label = 2;
-                    case 2:
-                        if (!(size && keys.length > 0)) return [3 /*break*/, 4];
-                        key = keys.shift() || "";
-                        _b = (_a = items).push;
-                        return [4 /*yield*/, this.forage.getItem(key)];
-                    case 3:
-                        _b.apply(_a, [_c.sent()]);
-                        this.shiftKeys.push(key);
-                        size--;
-                        return [3 /*break*/, 2];
-                    case 4:
-                        if (!immediate) return [3 /*break*/, 6];
-                        return [4 /*yield*/, this.cleanShift()];
-                    case 5:
-                        _c.sent();
-                        _c.label = 6;
-                    case 6: return [2 /*return*/, items];
-                }
-            });
-        });
-    };
-    Receptacle.prototype.push = function (item) {
-        return __awaiter(this, void 0, void 0, function () {
-            var key;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        key = new Date().getTime() + "";
-                        return [4 /*yield*/, this.forage.setItem(key, item)];
-                    case 1:
-                        _a.sent();
-                        return [2 /*return*/];
-                }
-            });
-        });
-    };
-    Receptacle.prototype.length = function () {
-        return __awaiter(this, void 0, void 0, function () {
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0: return [4 /*yield*/, this.forage.length()];
-                    case 1: return [2 /*return*/, _a.sent()];
-                }
-            });
-        });
-    };
-    Receptacle.prototype.clear = function () {
-        return __awaiter(this, void 0, void 0, function () {
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0: return [4 /*yield*/, this.forage.clear()];
-                    case 1: return [2 /*return*/, _a.sent()];
-                }
-            });
-        });
-    };
-    Receptacle.prototype.keys = function () {
-        return __awaiter(this, void 0, void 0, function () {
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0: return [4 /*yield*/, this.forage.keys()];
-                    case 1: return [2 /*return*/, _a.sent()];
-                }
-            });
-        });
-    };
-    Receptacle.prototype.iterate = function (iteratee) {
-        return __awaiter(this, void 0, void 0, function () {
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0: return [4 /*yield*/, this.forage.iterate(iteratee)];
-                    case 1: return [2 /*return*/, _a.sent()];
-                }
-            });
-        });
-    };
-    return Receptacle;
-}());
-
-function getBasicInfo() {
-    return __assign(__assign(__assign({}, getUniqueInfo()), getConnection()), { page: window.location.href, uId: getCookie("uId") || "", rId: getCookie("rId") || "", 
-        // 设备号
-        dId: getCookie("deviceId") || "", 
-        // 设备类型
-        dt: getCookie("deviceType") || "", 
-        // 系统
-        sys: getCookie("sys") || "", 
-        //系统版本
-        sv: getCookie("sysVersion") || "", 
-        //设备宽度像素
-        sw: getScreen().w, 
-        // 设备高度像素
-        sh: getScreen().h, 
-        // 当前版本号
-        v: '0.0.1' });
-}
-// 获取屏幕宽高
-function getScreen() {
-    return {
-        w: document.documentElement.clientWidth || document.body.clientWidth,
-        h: document.documentElement.clientHeight || document.body.clientHeight
-    };
-}
-/**
- * 获取随机数 例子:Ab23cD_1546313114
- * @param len 长度
- */
-function randomString(len) {
-    len = len || 10;
-    var $chars = 'ABCDEFGHJKMNPQRSTWXYZabcdefhijkmnprstwxyz123456789';
-    var maxPos = $chars.length;
-    var pwd = '';
-    for (var i = 0; i < len; i++) {
-        pwd = pwd + $chars.charAt(Math.floor(Math.random() * maxPos));
-    }
-    return pwd + "_" + new Date().getTime();
-}
-/**
- * 获取cookie
- */
-function getCookie(name) {
-    var arr, reg = new RegExp("(^| )" + name + "=([^;]*)(;|$)");
-    if (arr = document.cookie.match(reg))
-        return (arr[2]);
-    else
-        return null;
-}
-/**
- * 获取页面的唯一标识
- */
-function getUniqueInfo() {
-    var uni = getCookie("uni");
-    if (!uni) {
-        uni = randomString(10);
-        var exdate = new Date();
-        exdate.setDate(exdate.getDate() + expiredays);
-        document.cookie = "uni=" + uni + ";domain=" + document.domain + ";path=/;expires=" + exdate.toGMTString();
-    }
-    return {
-        uni: uni
-    };
-}
-/**
- * 统计页面性能
- */
-function perforPage() {
-    if (!window.performance)
-        return {};
-    var timing = performance.timing;
-    return {
-        // DNS解析时间
-        dnst: timing.domainLookupEnd - timing.domainLookupStart || 0,
-        //TCP建立时间
-        tcpt: timing.connectEnd - timing.connectStart || 0,
-        // 白屏时间  
-        wit: timing.responseStart - timing.navigationStart || 0,
-        //dom渲染完成时间
-        domt: timing.domContentLoadedEventEnd - timing.navigationStart || 0,
-        //页面onload时间
-        lodt: timing.loadEventEnd - timing.navigationStart || 0,
-        // 页面准备时间 
-        radt: timing.fetchStart - timing.navigationStart || 0,
-        // 页面重定向时间
-        rdit: timing.redirectEnd - timing.redirectStart || 0,
-        // unload时间
-        uodt: timing.unloadEventEnd - timing.unloadEventStart || 0,
-        //request请求耗时
-        reqt: timing.responseEnd - timing.requestStart || 0,
-        //页面解析dom耗时
-        andt: timing.domComplete - timing.domInteractive || 0,
-    };
-}
-/**
- * 获取网络情况
- */
-function getConnection() {
-    var connection = navigator.connection;
-    if (!connection) {
-        return {
-            ct: navigator.onLine ? "online" : "offline"
-        };
-    }
-    var rtt = connection.rtt, downlink = connection.downlink, effectiveType = connection.effectiveType, saveData = connection.saveData;
-    return {
-        // 有效网络连接类型
-        ct: effectiveType,
-        // 估算的下行速度/带宽
-        cs: downlink + "Mb/s",
-        // 估算的往返时间
-        cr: rtt + "ms",
-        // 打开/请求数据保护模式
-        csa: saveData
-    };
-}
-// 监听事件
-function on(event, listener) {
-    window.addEventListener && window.addEventListener(event, function eventHandle(ev) {
-        listener.call(this, ev);
-    }, true);
-    window.attachEvent && window.attachEvent("on" + event, function eventHandle(ev) {
-        listener.call(this, ev);
-    });
-}
-// 取消监听事件
-function off(event, listener) {
-    window.removeEventListener && window.removeEventListener(event, listener);
-    window.detachEvent && window.detachEvent(event, listener);
-}
-// 自定义事件，并dispatch
-function dispatchCustomEvent(e, t) {
-    var r;
-    CustomEvent
-        ? r = new CustomEvent(e, {
-            detail: t
-        })
-        : ((r = window.document.createEvent("HTMLEvents")).initEvent(e, !1, !0),
-            r.detail = t);
-    window.dispatchEvent(r);
-}
-// 获取hash值
-function parseHash(e) {
-    return (e ? parseUrl(e.replace(/^#\/?/, "")) : "") || "[index]";
-}
-// 获取域名
-function parseUrl(e) {
-    return e.replace(/^(https?:)?\/\//, "").replace(/\?.*$/, "");
-}
-
 var AbstractCollector = /** @class */ (function () {
     function AbstractCollector() {
-        this.isRunning = false;
     }
     AbstractCollector.prototype.collect = function (params) {
         params = __assign(__assign(__assign({}, getBasicInfo()), getConnection()), params);
@@ -1814,11 +1795,9 @@ var ErrorCollector = /** @class */ (function (_super) {
     };
     ErrorCollector.prototype.start = function () {
         on("error", this.listener.bind(this));
-        this.isRunning = true;
     };
     ErrorCollector.prototype.stop = function () {
         off("error", this.listener.bind(this));
-        this.isRunning = false;
     };
     return ErrorCollector;
 }(AbstractCollector));
@@ -2958,7 +2937,6 @@ var ActionCollector = /** @class */ (function (_super) {
             attributes: true,
             attributeFilter: ["action-data"]
         });
-        this.isRunning = true;
     };
     ActionCollector.prototype.stop = function () {
         this.nodes.forEach(function (node) {
@@ -2969,7 +2947,6 @@ var ActionCollector = /** @class */ (function (_super) {
         this.observer.disconnect();
         this.observer.takeRecords();
         delete this.observer;
-        this.isRunning = false;
     };
     return ActionCollector;
 }(AbstractCollector));
@@ -2990,11 +2967,9 @@ var UncaughtCollector = /** @class */ (function (_super) {
     };
     UncaughtCollector.prototype.start = function () {
         on("unhandledrejection", this.listener.bind(this));
-        this.isRunning = true;
     };
     UncaughtCollector.prototype.stop = function () {
         off("unhandledrejection", this.listener.bind(this));
-        this.isRunning = false;
     };
     return UncaughtCollector;
 }(AbstractCollector));
@@ -3021,7 +2996,7 @@ var PvConllector = /** @class */ (function (_super) {
                 p !== d ? dispatchCustomEvent("historystatechanged", d) : g !== v && dispatchCustomEvent("historystatechanged", v);
             }
             catch (m) {
-                console.log("[retcode] error in " + e + ": " + m);
+                console.error("[retcode] error in " + e + ": " + m);
             }
             return f;
         });
@@ -3057,14 +3032,12 @@ var PvConllector = /** @class */ (function (_super) {
         on('hashchange', this.handleHashchange.bind(this));
         on('historystatechanged', this.handleHistorystatechange.bind(this));
         this.collect();
-        this.isRunning = true;
     };
     PvConllector.prototype.stop = function () {
         this.dehackState('pushState');
         this.dehackState('replaceState');
         off('hashchange', this.handleHashchange.bind(this));
         off('historystatechanged', this.handleHistorystatechange.bind(this));
-        this.isRunning = false;
     };
     return PvConllector;
 }(AbstractCollector));
@@ -3082,89 +3055,31 @@ var PerformanceCollector = /** @class */ (function (_super) {
     };
     PerformanceCollector.prototype.start = function () {
         on("load", this.listener.bind(this));
-        this.isRunning = true;
     };
     PerformanceCollector.prototype.stop = function () {
         off("load", this.listener.bind(this));
-        this.isRunning = false;
     };
     return PerformanceCollector;
 }(AbstractCollector));
 
-var MonitorLauncher = /** @class */ (function () {
-    function MonitorLauncher(options) {
-        this.consumers = new DoubileLinkedList();
-        typeof options === 'string' ? Receptacle.getInstance(options) : Receptacle.getInstance(options.appId);
-        var collectors = Collectors.getInstance();
-        options.error && collectors.reigster("error", ErrorCollector);
-        options.uncaught && collectors.reigster("uncaught", UncaughtCollector);
-        options.action && collectors.reigster("action", ActionCollector);
-        options.pv && collectors.reigster("pv", PvConllector);
-        options.performance && collectors.reigster("performance", PerformanceCollector);
+var index = {
+    config: config,
+    MonitorLauncher: MonitorLauncher,
+    Receptacle: Receptacle,
+    AbstarctStrategy: AbstarctStrategy,
+    AbstractCollector: AbstractCollector,
+    strategys: {
+        BeaconStrategy: BeaconStrategy,
+        FetchStrategy: FetchStrategy,
+        ImageStrategy: ImageStrategy
+    },
+    collectors: {
+        ErrorCollector: ErrorCollector,
+        UncaughtCollector: UncaughtCollector,
+        ActionCollector: ActionCollector,
+        PvConllector: PvConllector,
+        PerformanceCollector: PerformanceCollector
     }
-    /**
-     * 启动上报
-     *
-     * @param period 上报周期
-     * @param size 一次上报埋点的数量
-     */
-    MonitorLauncher.prototype.start = function (period, size) {
-        var _this = this;
-        if (period === void 0) { period = 15000; }
-        if (size === void 0) { size = 10; }
-        if (this.timer)
-            clearInterval(this.timer);
-        this.timer = window.setInterval(function () { return __awaiter(_this, void 0, void 0, function () {
-            var consumer, data;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        if (!(this.consumers.size() > 0)) return [3 /*break*/, 5];
-                        consumer = this.consumers.header();
-                        return [4 /*yield*/, Receptacle.getInstance().shift(size, false)];
-                    case 1:
-                        data = _a.sent();
-                        _a.label = 2;
-                    case 2:
-                        if (!(consumer.hasNext() && data.length > 0)) return [3 /*break*/, 5];
-                        if (!consumer.val.canPass()) return [3 /*break*/, 4];
-                        if (!consumer.val.consume(typeof data === 'string' ? data : JSON.stringify(data))) return [3 /*break*/, 4];
-                        return [4 /*yield*/, Receptacle.getInstance().cleanShift()];
-                    case 3:
-                        _a.sent();
-                        _a.label = 4;
-                    case 4:
-                        consumer = consumer.next;
-                        return [3 /*break*/, 2];
-                    case 5: return [2 /*return*/];
-                }
-            });
-        }); }, period);
-    };
-    /**
-     * 关闭上报
-     */
-    MonitorLauncher.prototype.stop = function () {
-        clearInterval(this.timer);
-        this.timer = undefined;
-    };
-    /**
-     * 注册消费者
-     *
-     * @param consumer 消费者实例
-     */
-    MonitorLauncher.prototype.subscribe = function (options) {
-        this.consumers.add(new MonitorConsumer(options));
-        return this.consumers.tail().val;
-    };
-    return MonitorLauncher;
-}());
+};
 
-var collectors = Collectors.getInstance();
-
-exports.AbstarctStrategy = AbstarctStrategy;
-exports.AbstractCollector = AbstractCollector;
-exports.MonitorLauncher = MonitorLauncher;
-exports.Receptacle = Receptacle;
-exports.collectors = collectors;
-exports.config = index;
+module.exports = index;

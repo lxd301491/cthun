@@ -6,6 +6,7 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
     <title>Document</title>
     <script src="../dist/cthun.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/pako/1.0.11/pako.min.js"></script>
   </head>
   <body>
     <!-- <img src="http://www.baidu.com/1.gif"> -->
@@ -17,23 +18,20 @@
   <script>
     function  addNewEle() {
       let el = document.createElement("p");
+      el.attributes['action-data'] = '{"events":["click"]}';
+      el.innerHTML = '111';
       document.querySelector("#div1").append(el);
     }
 
-    Cthun.config.debuggable = true;
+    Cthun.config.env = 'development';
     
     var launcher = new Cthun.MonitorLauncher({
-      appId: "test",
-      error: true,
-      uncaught: true,
-      action: true,
-      pv: true,
-      performance: true
+      appId: "test"
     });
     launcher.start();
     launcher.subscribe({
       api: "http://www.baidu.com"
     })
-    throw new Error("12312")
+    new Cthun.collectors.ErrorCollector().start();
   </script>
 </html>

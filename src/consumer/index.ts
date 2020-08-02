@@ -1,85 +1,57 @@
-import { debuggable, debuggableAsync, debuggableClass } from '../decorators';
-import { infoLenMax } from "../configs";
-import { AbstarctStrategy, StrategyOptions } from "./AbstarctStrategy";
-import { FetchStrategy } from "./FetchStrategy";
+import { debuggableAsync } from '../decorators';
 import { DoubileLinkedList } from "../doubileLinkedList";
-import { ImageStrategy } from "./ImageStrategy";
-import { BeaconStrategy } from "./BeaconStrategy";
-
-import pako from 'pako';
+import AbstarctStrategy from "./AbstarctStrategy";
 
 
 export interface IConsumerOptions {
   api: string;
-  strategys?: AbstarctStrategy | AbstarctStrategy[];
-  gzip?: boolean;
-  strategyOptions?: StrategyOptions;
+  beforeConsume?: (data: string) => string
 }
 
-@debuggableClass()
-export class MonitorConsumer {
-  private api: string;
-  private _gzip: boolean;
-  private _strategys: DoubileLinkedList<AbstarctStrategy> = new DoubileLinkedList<AbstarctStrategy>();
+export class MonitorConsumer<T extends AbstarctStrategy> {
+  private _api: string;
+  private _strategys: DoubileLinkedList<T> = new DoubileLinkedList<T>();
+  private _strategy: IListNode<T> = this._strategys.header();
+  private beforeConsume: (data: string) => string;
 
   constructor(options: IConsumerOptions){
-    this.api = options.api;
-    this._resetStrategys(options.strategys, options.strategyOptions);
-    this._gzip = options.gzip;
-
+    this._api = options.api;
+    this.beforeConsume = options.beforeConsume;
   }
 
-  private _resetStrategys (strategys: AbstarctStrategy | AbstarctStrategy[], options: StrategyOptions) {
-    this._strategys.clear();
-    this._strategys.add(new ImageStrategy(options));
-    this._strategys.add(new BeaconStrategy(options));  
-    this._strategys.add(new FetchStrategy(options));
-    if (strategys instanceof Array) {
-      while(strategys.length > 0) {
-        this._strategys.add(strategys.pop());
-      }
-    } else {
-      this._strategys.add(strategys);
-    }
-    
+  public registerStrategy(strategy: T): MonitorConsumer<T> {
+    this._strategys.add(strategy);
+    return this;
   }
 
-  public canPass(): boolean {
-    let node = this._strategys.tail();
-    while (node.hasPrev()) {
-      if (node.val && node.val.canPass()) {
-        return true;
-      }
-      node = node.prev;
-    }
-    return false;
+  public removeStrategy(strategy: T): MonitorConsumer<T> {
+    this._strategys.remove(strategy);
+    return this;
   }
 
   @debuggableAsync("MonitorConsumer consume")
   public async consume(data: string): Promise<boolean> {
-    if (!this.canPass()) return;
-    let params: IUploadParams = {
-      api: this.api,
-      data: encodeURIComponent(data)
+    if (this.beforeConsume) {
+      data = this.beforeConsume(data);
     }
-    if (this._gzip && params.data.length > infoLenMax) {
-      console.log(`data length before gzip ${params.data.length}`);
-      params.data = pako.gzip(params.data, {to: "string"});
-      console.log(`data length after gzip ${params.data.length}`);
-      params.gzip = true;
+    let params: IConsumeParams = {
+      api: this._api,
+      data: data
     }
-    let strategy = this._strategys.tail();
-    while (strategy.hasPrev()) {
-      if (strategy.val && strategy.val.canPass()) {
-        try {
-          await strategy.val.consume(params);
-          return true;
-        } catch (err) {
-          strategy.val.count();
+
+    this._strategy = this._strategy == this._strategys.tail() ? this._strategys.header() : this._strategy;
+    if (this._strategy.val && !await this._strategy.val.consume(params)) {
+      this._strategy = this._strategys.header();
+      while (this._strategy.hasNext()) {
+        if (this._strategy.val && this._strategy.val.canPass()) {
+          if (await this._strategy.val.consume(params)) {
+            return true;
+          }
+          this._strategy = this._strategy.next;
         }
       }
-      strategy = strategy.prev;
+      return false;
     }
-    return false;
+    return true;
   }
 }

@@ -62,6 +62,5 @@
   ],
   "main": "dist/cthun.cjs.js",
   "module": "dist/cthun.esm.js",
-  "typings": "src/index.ts",
   "unpkg": "dist/cthun.js"
 }

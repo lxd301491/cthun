@@ -4,7 +4,7 @@ export interface StrategyOptions {
     breakerOptions: CircuitBreakerOptions;
 }
 
-export abstract class AbstarctStrategy {
+export default abstract class AbstarctStrategy {
     protected abnormalBreaker: CircuitBreaker;
     
     constructor (options: StrategyOptions = {
@@ -17,7 +17,7 @@ export abstract class AbstarctStrategy {
         this.abnormalBreaker = new CircuitBreaker(options.breakerOptions);
     }
 
-    abstract consume(params: IUploadParams): Promise<any>;
+    abstract consume(params: IConsumeParams): Promise<boolean>;
 
     public canPass () {
         return this.abnormalBreaker.canPass();

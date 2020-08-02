@@ -1,7 +1,7 @@
-import { AbstractCollector } from "./AbstractCollector";
+import AbstractCollector from "./AbstractCollector";
 import { on, off } from "../helpers";
 
-export class UncaughtCollector extends AbstractCollector {
+export default class UncaughtCollector extends AbstractCollector {
   private listener(evt: PromiseRejectionEvent) {
     evt.stopPropagation();
     evt.preventDefault();
@@ -14,13 +14,9 @@ export class UncaughtCollector extends AbstractCollector {
 
   start(): void {
     on("unhandledrejection", this.listener.bind(this));
-
-    this.isRunning = true;
   }
   
   stop(): void {
     off("unhandledrejection", this.listener.bind(this));
-
-    this.isRunning = false;
   }
 }
