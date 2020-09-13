@@ -1,7 +1,7 @@
 import { MonitorLauncher } from "./launcher";
 
 import Receptacle from './receptacle';
-import config from './configs';
+import config, { handlers } from './configs';
 
 import AbstarctStrategy from './consumer/AbstarctStrategy';
 import BeaconStrategy from './consumer/BeaconStrategy';
@@ -17,6 +17,7 @@ import PerformanceCollector from "./collectors/PerformanceCollector";
 
 export default {
   config,
+  hanlders: handlers,
   MonitorLauncher,
   Receptacle,
   AbstarctStrategy,

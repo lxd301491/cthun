@@ -50,6 +50,7 @@ interface IMonitorOptions {
   action?: boolean;
   pv?: boolean;
   performance?: boolean;
+  store ?: IStore;
 }
 
 type TInfos = IMsgInfo | IPerformanceInfo | IEnvInfo | IErrorInfo | IActionInfo | IPvInfo;
@@ -175,4 +176,35 @@ interface IConsumeParams {
   api: string;
   data: string;
   [propName: string]: any;
+}
+
+interface IStore {
+  getItem<T>(key: string, callback?: (err: any, value: T) => void): Promise<T>;
+
+  setItem<T>(key: string, value: T, callback?: (err: any, value: T) => void): Promise<T>;
+
+  removeItem(key: string, callback?: (err: any) => void): Promise<void>;
+
+  clear(callback?: (err: any) => void): Promise<void>;
+
+  length(callback?: (err: any, numberOfKeys: number) => void): Promise<number>;
+
+  key(keyIndex: number, callback?: (err: any, key: string) => void): Promise<string>;
+
+  keys(callback?: (err: any, keys: string[]) => void): Promise<string[]>;
+
+  iterate<T, U>(iteratee: (value: T, key: string, iterationNumber: number) => U,
+          callback?: (err: any, result: U) => void): Promise<U>;
+}
+
+/**
+ * 环形函数
+ */
+type AnnulusFunction = <T>(args: T) => T;
+
+/**
+ * 环境接口
+ */
+interface IHandlers {
+  [key: string]: AnnulusFunction
 }

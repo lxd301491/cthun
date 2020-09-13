@@ -44,7 +44,7 @@ export function getScreen() {
  * 获取随机数 例子:Ab23cD_1546313114
  * @param len 长度
  */
-export function randomString(len: number) {
+export function randomString(len ?: number) {
   len = len || 10;
   const $chars = 'ABCDEFGHJKMNPQRSTWXYZabcdefhijkmnprstwxyz123456789';
   let maxPos = $chars.length;
@@ -214,6 +214,45 @@ export function parseUrl (e: string) {
   return e.replace(/^(https?:)?\/\//, "").replace(/\?.*$/, "");
 }
 
+// 判断是否生产环境
 export function isProd () {
   return config.env === 'production';
+}
+
+// 函数aop封装
+export function replace(target: any, methodName: string, replacer: Function, namespace?: string) {
+  let top: any = window || global || undefined;
+  if (!top) {
+    throw new ReferenceError("the top object is not exist");
+  } 
+  if (!top._replace_center_) top._replace_center_ = {};
+  let container = namespace ? top._replace_center_[namespace] ? top._replace_center_[namespace] : top._replace_center_[namespace] = {} : top._replace_center_;
+  if (!container[methodName]) {
+    container[methodName] = target[methodName];
+    target[methodName] = replacer;
+  }
+}
+
+// 函数aop解除封装
+export function reduction(target: any, methodName: string, namespace?: string) {
+  let top: any = window || global || undefined;
+  if (!top) {
+    throw new ReferenceError("the top object is not exist");
+  } 
+  if (!top._replace_center_) top._replace_center_ = {};
+  let container = namespace ? top._replace_center_[namespace] ? top._replace_center_[namespace] : top._replace_center_[namespace] = {} : top._replace_center_;
+  if (top._replace_center_[methodName]) {
+    target[methodName] = container[methodName];
+    delete container[methodName];
+  }
+}
+
+//兼容所有浏览器获得构造函数名称
+export function getFnName(fn: Function){
+  return fn.name || /function (.+)\(/.exec(fn + '')[1];
+}
+
+export function getCurrentElement(target: HTMLElement) {
+  let r = target.outerHTML.match("<.+?>");
+  return r && r[0] || "";
 }

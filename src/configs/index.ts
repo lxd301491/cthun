@@ -1,3 +1,13 @@
+/**
+* 拦截器
+*/
+export const handlers: IHandlers = {
+   beforeCollect: undefined,
+   afterCollect:undefined,
+   beforeConsume: undefined,
+   afterConsume: undefined
+}
+
 export default {
     env: 'production',
     /**

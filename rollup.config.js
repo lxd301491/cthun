@@ -58,7 +58,6 @@ const outputOptions = [
     format: "cjs",
     globals: {
       axios: 'Window.axios',
-      localforage: 'window.localforage',
       pako: 'Window.pako'
     }
   },
@@ -68,7 +67,6 @@ const outputOptions = [
     uglify: true,
     globals: {
       axios: 'Window.axios',
-      localforage: 'window.localforage',
       pako: 'Window.pako'
     }
   },
@@ -77,7 +75,6 @@ const outputOptions = [
     format: "es",
     globals: {
       axios: 'Window.axios',
-      localforage: 'window.localforage',
       pako: 'Window.pako'
     }
   },
@@ -87,7 +84,6 @@ const outputOptions = [
     uglify: true,
     globals: {
       axios: 'Window.axios',
-      localforage: 'window.localforage',
       pako: 'Window.pako'
     }
   }

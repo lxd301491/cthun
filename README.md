@@ -78,7 +78,9 @@ launcher.subscribe({
       idleTimeForOpen: 5 * 60,
       thresholdForHalfOpen: '1/60'
     }
-  })]
+  })],
+  // 本地化策略，传入对象必须实现localForage相关接口
+  store: localforage 
 });
 ```
 
@@ -95,4 +97,25 @@ class CustomCollector extends Cthun.AbstractCollector {
 }
 
 Cthun.collectors.register("custom", CustomCollector);
+```
+
+***收集和发送handler***
+```javascript
+  // 收集前执行的策略，全局需要添加自定义参数可以在这里实现
+  Cthun.hanlders.beforeCollect = function (args) {
+    console.log("beforeCollect", args[0]);
+    args[0] = {
+      ...args[0],
+      aa: 123
+    }
+    return args;
+  }
+
+  // 发送前执行的策略（可以添加压缩策略）
+  Cthun.hanlders.beforeConsume = function (args) {
+    console.log("beforeConsume", args[0], "origin length", args[0].length);
+    args[0] = pako.gzip(encodeURIComponent(args[0]), { to: 'string' })
+    console.log("beforeConsume", args[0], "gzip length", args[0].length);
+    return args;
+  }
 ```

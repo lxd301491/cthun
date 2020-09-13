@@ -1,7 +1,7 @@
 import { MonitorConsumer, IConsumerOptions } from "../consumer";
-import Receptacle from "../receptacle";
 import { DoubileLinkedList } from "../doubileLinkedList";
 import AbstarctStrategy from "../consumer/AbstarctStrategy";
+import Receptacle from "../receptacle";
 
 
 export class MonitorLauncher<T extends AbstarctStrategy> {
@@ -9,7 +9,7 @@ export class MonitorLauncher<T extends AbstarctStrategy> {
   private timer?: number;
   
   constructor (options: IMonitorOptions) {
-    typeof options === 'string' ? Receptacle.getInstance(options) : Receptacle.getInstance(options.appId);
+    options.store ? Receptacle.getInstance(options.appId, options.store) : Receptacle.getInstance(options.appId);
   }
 
   /**
@@ -24,7 +24,7 @@ export class MonitorLauncher<T extends AbstarctStrategy> {
       if (this.consumers.size() > 0) {
         let consumer: IListNode<MonitorConsumer<T>> = this.consumers.header();
         let data = await Receptacle.getInstance().shift(size, false);
-        while (consumer.hasNext() && data.length > -1) {
+        while (consumer.hasNext() && data.length > 0) {
           if (await consumer.val.consume(typeof data === 'string' ? data : JSON.stringify(data))) {
             await Receptacle.getInstance().cleanShift();
           }

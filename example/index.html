@@ -7,6 +7,7 @@
     <title>Document</title>
     <script src="../dist/cthun.js"></script>
     <script src="https://cdn.bootcdn.net/ajax/libs/pako/1.0.11/pako.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/localforage@1.9.0/dist/localforage.min.js"></script>
   </head>
   <body>
     <!-- <img src="http://www.baidu.com/1.gif"> -->
@@ -16,6 +17,10 @@
     </div>
   </body>
   <script>
+    localforage.config({
+      name: 'testApp'
+    })
+
     function  addNewEle() {
       let el = document.createElement("p");
       el.attributes['action-data'] = '{"events":["click"]}';
@@ -23,15 +28,34 @@
       document.querySelector("#div1").append(el);
     }
 
-    Cthun.config.env = 'development';
+    // Cthun.config.env = 'development';
+
+    Cthun.hanlders.beforeCollect = function (args) {
+      console.log("beforeCollect", args[0]);
+      args[0] = {
+        ...args[0],
+        aa: 123
+      }
+      return args;
+    }
+
+    Cthun.hanlders.beforeConsume = function (args) {
+      console.log("beforeConsume", args[0], "origin length", args[0].length);
+      args[0] = pako.gzip(encodeURIComponent(args[0]), { to: 'string' })
+      console.log("beforeConsume", args[0], "gzip length", args[0].length);
+      return args;
+    }
     
     var launcher = new Cthun.MonitorLauncher({
-      appId: "test"
+      appId: "test",
+      store: localforage
     });
     launcher.start();
     launcher.subscribe({
       api: "http://www.baidu.com"
     })
+    new Cthun.collectors.ActionCollector().start();
     new Cthun.collectors.ErrorCollector().start();
+    throw Error("123123")
   </script>
 </html>

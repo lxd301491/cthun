@@ -2,7 +2,6 @@
 
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-var localForage = _interopDefault(require('localforage'));
 var axios = _interopDefault(require('axios'));
 
 /*! *****************************************************************************
@@ -89,6 +88,15 @@ function __generator(thisArg, body) {
     }
 }
 
+/**
+* 拦截器
+*/
+var handlers = {
+    beforeCollect: undefined,
+    afterCollect: undefined,
+    beforeConsume: undefined,
+    afterConsume: undefined
+};
 var config = {
     env: 'production',
     /**
@@ -249,39 +257,11 @@ function parseHash(e) {
 function parseUrl(e) {
     return e.replace(/^(https?:)?\/\//, "").replace(/\?.*$/, "");
 }
+// 判断是否生产环境
 function isProd() {
     return config.env === 'production';
 }
-
-function debuggableAsync(logInfo) {
-    return function (target, methodName, descriptor) {
-        return {
-            value: function () {
-                var args = [];
-                for (var _i = 0; _i < arguments.length; _i++) {
-                    args[_i] = arguments[_i];
-                }
-                return __awaiter(this, void 0, void 0, function () {
-                    var result;
-                    return __generator(this, function (_a) {
-                        switch (_a.label) {
-                            case 0:
-                                !isProd() && console.info(target.constructor.name + " " + methodName + " start");
-                                result = descriptor.value.apply(this, args);
-                                if (!(result instanceof Promise))
-                                    result = Promise.resolve(result);
-                                return [4 /*yield*/, result];
-                            case 1:
-                                result = _a.sent();
-                                !isProd() && console.info(target.constructor.name + " " + methodName + " finished");
-                                return [2 /*return*/, result];
-                        }
-                    });
-                });
-            }
-        };
-    };
-}
+// 函数aop封装
 function replace(target, methodName, replacer, namespace) {
     var top = window || global || undefined;
     if (!top) {
@@ -295,6 +275,7 @@ function replace(target, methodName, replacer, namespace) {
         target[methodName] = replacer;
     }
 }
+// 函数aop解除封装
 function reduction(target, methodName, namespace) {
     var top = window || global || undefined;
     if (!top) {
@@ -307,6 +288,57 @@ function reduction(target, methodName, namespace) {
         target[methodName] = container[methodName];
         delete container[methodName];
     }
+}
+//兼容所有浏览器获得构造函数名称
+function getFnName(fn) {
+    return fn.name || /function (.+)\(/.exec(fn + '')[1];
+}
+function getCurrentElement(target) {
+    var r = target.outerHTML.match("<.+?>");
+    return r && r[0] || "";
+}
+
+function around(debuggable, before, after) {
+    if (debuggable === void 0) { debuggable = false; }
+    return function (target, methodName, descriptor) {
+        return {
+            value: function () {
+                var args = [];
+                for (var _i = 0; _i < arguments.length; _i++) {
+                    args[_i] = arguments[_i];
+                }
+                return __awaiter(this, void 0, void 0, function () {
+                    var result, _a, _b, _c, _d;
+                    return __generator(this, function (_e) {
+                        switch (_e.label) {
+                            case 0:
+                                if (handlers[before])
+                                    args = handlers[before].apply(this, [args]);
+                                debuggable && !isProd() && console.info(target.constructor.name + " " + methodName + " args", args);
+                                result = descriptor.value.apply(this, args);
+                                if (handlers[after])
+                                    result = handlers[after].apply(this, [result]);
+                                if (!(result instanceof Promise)) return [3 /*break*/, 3];
+                                _a = debuggable && !isProd();
+                                if (!_a) return [3 /*break*/, 2];
+                                _c = (_b = console).info;
+                                _d = [target.constructor.name + " " + methodName + " result"];
+                                return [4 /*yield*/, result];
+                            case 1:
+                                _a = _c.apply(_b, _d.concat([_e.sent()]));
+                                _e.label = 2;
+                            case 2:
+                                return [3 /*break*/, 4];
+                            case 3:
+                                debuggable && !isProd() && console.info(target.constructor.name + " " + methodName + " result", result);
+                                _e.label = 4;
+                            case 4: return [2 /*return*/, result];
+                        }
+                    });
+                });
+            }
+        };
+    };
 }
 
 var ListNode = /** @class */ (function () {
@@ -521,25 +553,109 @@ var MonitorConsumer = /** @class */ (function () {
         });
     };
     __decorate([
-        debuggableAsync()
+        around(true, "beforeConsume", "afterConsume")
     ], MonitorConsumer.prototype, "consume", null);
     return MonitorConsumer;
 }());
 
-var Receptacle = /** @class */ (function () {
-    function Receptacle(appId) {
-        this.shiftKeys = [];
-        this.forage = localForage.createInstance({
-            name: appId,
-            storeName: appId
-        });
+var DefaultStore = /** @class */ (function () {
+    function DefaultStore() {
+        this._kv = new Map();
     }
-    Receptacle.getInstance = function (appId) {
+    DefaultStore.prototype.getItem = function (key, callback) {
+        try {
+            callback && callback(null, this._kv.get(key));
+            return Promise.resolve(this._kv.get(key));
+        }
+        catch (e) {
+            callback && callback(e, null);
+            return Promise.reject(e);
+        }
+    };
+    DefaultStore.prototype.setItem = function (key, value, callback) {
+        try {
+            this._kv.set(key, value);
+            callback && callback(null, value);
+            return Promise.resolve(value);
+        }
+        catch (e) {
+            callback && callback(e, null);
+            return Promise.reject(e);
+        }
+    };
+    DefaultStore.prototype.removeItem = function (key, callback) {
+        try {
+            this._kv.delete(key);
+            callback && callback(null);
+            return Promise.resolve();
+        }
+        catch (e) {
+            callback && callback(e);
+            return Promise.reject(e);
+        }
+    };
+    DefaultStore.prototype.clear = function (callback) {
+        try {
+            this._kv.clear();
+            callback && callback(null);
+            return Promise.resolve();
+        }
+        catch (e) {
+            callback && callback(e);
+            return Promise.reject(e);
+        }
+    };
+    DefaultStore.prototype.length = function (callback) {
+        try {
+            callback && callback(null, this._kv.size);
+            return Promise.resolve(this._kv.size);
+        }
+        catch (e) {
+            callback && callback(e, null);
+            return Promise.reject(e);
+        }
+    };
+    DefaultStore.prototype.key = function (keyIndex, callback) {
+        if (keyIndex < 0 || this._kv.size <= keyIndex) {
+            callback && callback(new Error("the keyIndex is out of range"), undefined);
+            return Promise.reject(new Error("the keyIndex is out of range"));
+        }
+        callback && callback(null, this._kv.keys()[keyIndex]);
+        return Promise.resolve(this._kv.keys()[keyIndex]);
+    };
+    DefaultStore.prototype.keys = function (callback) {
+        callback && callback(null, Array.from(this._kv.keys()));
+        return Promise.resolve(Array.from(this._kv.keys()));
+    };
+    DefaultStore.prototype.iterate = function (iteratee, callback) {
+        var len = this._kv.size;
+        var result = null;
+        try {
+            for (var i = 0; i < len; i++) {
+                result = iteratee(this._kv.values[i], this._kv.keys[i], i);
+            }
+            callback && callback(null, result);
+            return Promise.resolve(result);
+        }
+        catch (e) {
+            callback && callback(e, null);
+            return Promise.reject(e);
+        }
+    };
+    return DefaultStore;
+}());
+var Receptacle = /** @class */ (function () {
+    function Receptacle(appId, forage) {
+        this.shiftKeys = [];
+        this.appId = appId;
+        this.forage = forage || new DefaultStore();
+    }
+    Receptacle.getInstance = function (appId, forage) {
         if (!Receptacle.instance && !appId) {
-            throw new Error("appid must be passed the first time to obtain the instance object!");
+            throw new Error("Receptacle instance is not created, please specify the appId when construct the MonitorLauncher");
         }
         if (!Receptacle.instance) {
-            Receptacle.instance = new Receptacle(appId);
+            Receptacle.instance = new Receptacle(appId, forage);
         }
         return Receptacle.instance;
     };
@@ -599,11 +715,11 @@ var Receptacle = /** @class */ (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        key = new Date().getTime() + "";
+                        key = this.appId + "_" + randomString();
                         return [4 /*yield*/, this.forage.setItem(key, item)];
                     case 1:
                         _a.sent();
-                        return [2 /*return*/];
+                        return [2 /*return*/, key];
                 }
             });
         });
@@ -648,13 +764,16 @@ var Receptacle = /** @class */ (function () {
             });
         });
     };
+    __decorate([
+        around(true, "beforeCollect", "afterCollect")
+    ], Receptacle.prototype, "push", null);
     return Receptacle;
 }());
 
 var MonitorLauncher = /** @class */ (function () {
     function MonitorLauncher(options) {
         this.consumers = new DoubileLinkedList();
-        typeof options === 'string' ? Receptacle.getInstance(options) : Receptacle.getInstance(options.appId);
+        options.store ? Receptacle.getInstance(options.appId, options.store) : Receptacle.getInstance(options.appId);
     }
     /**
      * 启动上报
@@ -680,7 +799,7 @@ var MonitorLauncher = /** @class */ (function () {
                         data = _a.sent();
                         _a.label = 2;
                     case 2:
-                        if (!(consumer.hasNext() && data.length > -1)) return [3 /*break*/, 6];
+                        if (!(consumer.hasNext() && data.length > 0)) return [3 /*break*/, 6];
                         return [4 /*yield*/, consumer.val.consume(typeof data === 'string' ? data : JSON.stringify(data))];
                     case 3:
                         if (!_a.sent()) return [3 /*break*/, 5];
@@ -2811,7 +2930,73 @@ var ActionCollector = /** @class */ (function (_super) {
     __extends(ActionCollector, _super);
     function ActionCollector() {
         var _this = _super !== null && _super.apply(this, arguments) || this;
-        _this.nodes = new Set();
+        _this.evtsHandler = {
+            "MouseEvent": function (evt) {
+                return {
+                    msg: evt.target instanceof HTMLElement ? getCurrentElement(evt.target) : "",
+                    ms: "action",
+                    ml: "info",
+                    at: evt.type,
+                    el: evt.target instanceof HTMLElement ? getCurrentElement(evt.target) : undefined,
+                    x: evt.x,
+                    y: evt.y
+                };
+            },
+            "DragEvent": function (evt) {
+                return {
+                    msg: evt.target instanceof HTMLElement ? getCurrentElement(evt.target) : "",
+                    ms: "action",
+                    ml: "info",
+                    at: evt.type,
+                    el: evt.target instanceof HTMLElement ? getCurrentElement(evt.target) : undefined,
+                    x: evt.x,
+                    y: evt.y
+                };
+            },
+            "TouchEvent": function (evt) {
+                var x, y;
+                for (var len = evt.changedTouches.length, i = 0; i < len; ++i) {
+                    x += i + ":" + evt.changedTouches[i].clientX + ";";
+                    y += i + ":" + evt.changedTouches[i].clientY + ";";
+                }
+                return {
+                    msg: "" + evt.type,
+                    ms: "action",
+                    ml: "info",
+                    at: evt.type,
+                    el: evt.target instanceof HTMLElement ? getCurrentElement(evt.target) : undefined,
+                    x: x,
+                    y: y,
+                    c: evt.changedTouches.length
+                };
+            },
+            "FocusEvent": function (evt) {
+                return {
+                    msg: evt.target instanceof HTMLElement ? getCurrentElement(evt.target) : "",
+                    ms: "action",
+                    ml: "info",
+                    at: evt.type,
+                    el: evt.target instanceof HTMLElement ? getCurrentElement(evt.target) : undefined,
+                };
+            },
+            "KeyboardEvent": function (evt) {
+                return {
+                    msg: evt.type + " " + evt.key,
+                    ms: "action",
+                    ml: "info",
+                    at: evt.type,
+                    key: evt.key
+                };
+            },
+            "InputEvent": function (evt) {
+                return {
+                    msg: evt.inputType + " " + evt.data,
+                    ms: "action",
+                    ml: "info",
+                    at: evt.type
+                };
+            }
+        };
         return _this;
     }
     /**
@@ -2837,95 +3022,19 @@ var ActionCollector = /** @class */ (function (_super) {
                 var aData = classTransformer_5(actionData, JSON.parse(attr.value));
                 if (aData instanceof actionData) {
                     aData.events.forEach(function (event) {
-                        node.addEventListener(event, _this.listener.bind(_this));
-                        _this.nodes.add({
-                            node: node,
-                            event: event,
-                            handler: _this.listener
-                        });
+                        node.addEventListener(event, _this.listener);
                     });
                 }
             }
         }
     };
-    ActionCollector.prototype.getCurrentElement = function (target) {
-        var r = target.outerHTML.match("<.+?>");
-        return r && r[0] || "";
-    };
     ActionCollector.prototype.listener = function (evt) {
-        if (evt instanceof MouseEvent) {
-            this.collect({
-                msg: evt.target instanceof HTMLElement ? this.getCurrentElement(evt.target) : "",
-                ms: "action",
-                ml: "info",
-                at: evt.type,
-                el: evt.target instanceof HTMLElement ? this.getCurrentElement(evt.target) : undefined,
-                x: evt.x,
-                y: evt.y
-            });
-        }
-        else if (evt instanceof DragEvent) {
-            this.collect({
-                msg: evt.target instanceof HTMLElement ? this.getCurrentElement(evt.target) : "",
-                ms: "action",
-                ml: "info",
-                at: evt.type,
-                el: evt.target instanceof HTMLElement ? this.getCurrentElement(evt.target) : undefined,
-                x: evt.x,
-                y: evt.y
-            });
-        }
-        else if (evt instanceof TouchEvent) {
-            for (var len = evt.changedTouches.length, i = 0; i < len; ++i) {
-                this.collect({
-                    msg: "" + evt.type,
-                    ms: "action",
-                    ml: "info",
-                    at: evt.type,
-                    el: evt.target instanceof HTMLElement ? this.getCurrentElement(evt.target) : undefined,
-                    x: evt.changedTouches[i].clientX,
-                    y: evt.changedTouches[i].clientY,
-                    c: len > 1 ? i : undefined
-                });
-            }
-        }
-        else if (evt instanceof FocusEvent) {
-            this.collect({
-                msg: evt.target instanceof HTMLElement ? this.getCurrentElement(evt.target) : "",
-                ms: "action",
-                ml: "info",
-                at: evt.type,
-                el: evt.target instanceof HTMLElement ? this.getCurrentElement(evt.target) : undefined,
-            });
-        }
-        else if (evt instanceof KeyboardEvent) {
-            this.collect({
-                msg: evt.type + " " + evt.key,
-                ms: "action",
-                ml: "info",
-                at: evt.type,
-                key: evt.key
-            });
-        }
-        else if (evt instanceof InputEvent) {
-            this.collect({
-                msg: evt.inputType + " " + evt.data,
-                ms: "action",
-                ml: "info",
-                at: evt.type
-            });
-        }
-        else {
-            this.collect({
-                msg: "" + evt,
-                ms: "action",
-                ml: "info",
-                at: evt.type
-            });
-        }
+        var evtName = getFnName(evt.constructor);
+        this.collect(this.evtsHandler[evtName](evt));
     };
     ActionCollector.prototype.start = function () {
         var _this = this;
+        this.listener = this.listener.bind(this);
         this.observer = new MutationObserver(function (mutations, observer) {
             mutations.forEach(function (mutation) {
                 _this.nodeBindActionHandler(mutation.target);
@@ -2939,11 +3048,6 @@ var ActionCollector = /** @class */ (function (_super) {
         });
     };
     ActionCollector.prototype.stop = function () {
-        this.nodes.forEach(function (node) {
-            node.node && node.node.removeEventListener(node.event, node.handler);
-            node.node = null;
-        });
-        this.nodes.clear();
         this.observer.disconnect();
         this.observer.takeRecords();
         delete this.observer;
@@ -3064,6 +3168,7 @@ var PerformanceCollector = /** @class */ (function (_super) {
 
 var index = {
     config: config,
+    hanlders: handlers,
     MonitorLauncher: MonitorLauncher,
     Receptacle: Receptacle,
     AbstarctStrategy: AbstarctStrategy,

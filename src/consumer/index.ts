@@ -1,6 +1,8 @@
-import { debuggableAsync } from '../decorators';
+import { around } from '../decorators';
 import { DoubileLinkedList } from "../doubileLinkedList";
 import AbstarctStrategy from "./AbstarctStrategy";
+import { handlers } from '../configs';
+import { after } from 'lodash';
 
 
 export interface IConsumerOptions {
@@ -29,7 +31,7 @@ export class MonitorConsumer<T extends AbstarctStrategy> {
     return this;
   }
 
-  @debuggableAsync("MonitorConsumer consume")
+  @around(true, "beforeConsume", "afterConsume")
   public async consume(data: string): Promise<boolean> {
     if (this.beforeConsume) {
       data = this.beforeConsume(data);

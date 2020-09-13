@@ -1,19 +1,80 @@
 import AbstractCollector from "./AbstractCollector";
 import { plainToClass } from "class-transformer";
+import { getFnName, getCurrentElement } from "../helpers";
 
 class actionData<K extends keyof GlobalEventHandlersEventMap>{
   public events: K[] = [];
 }
 
-interface NodeEventHandler<K extends keyof GlobalEventHandlersEventMap> {
-  node: Node;
-  event: K;
-  handler: (evt: GlobalEventHandlersEventMap[K]) => void
-}
-
-export default class ActionCollector<K extends keyof GlobalEventHandlersEventMap> extends AbstractCollector {
+export default class ActionCollector extends AbstractCollector {
   private observer: MutationObserver;
-  private nodes: Set<NodeEventHandler<K>> = new Set<NodeEventHandler<K>>();
+  private evtsHandler = {
+    "MouseEvent": function (evt: MouseEvent) {
+      return {
+        msg: evt.target instanceof HTMLElement ? getCurrentElement(evt.target) : "",
+        ms: "action",
+        ml: "info",
+        at: evt.type,
+        el: evt.target instanceof HTMLElement ? getCurrentElement(evt.target) : undefined,
+        x: evt.x,
+        y: evt.y
+      }
+    },
+    "DragEvent": function (evt: DragEvent) {
+      return {
+        msg: evt.target instanceof HTMLElement ? getCurrentElement(evt.target) : "",
+        ms: "action",
+        ml: "info",
+        at: evt.type,
+        el: evt.target instanceof HTMLElement ? getCurrentElement(evt.target) : undefined,
+        x: evt.x,
+        y: evt.y
+      }
+    },
+    "TouchEvent": function (evt: TouchEvent) {
+      let x, y;
+      for (let len = evt.changedTouches.length, i = 0; i < len; ++i) {
+        x += `${i}:${evt.changedTouches[i].clientX};`;
+        y += `${i}:${evt.changedTouches[i].clientY};`;
+      }
+      return {
+        msg: `${evt.type}`,
+        ms: "action",
+        ml: "info",
+        at: evt.type,
+        el: evt.target instanceof HTMLElement ? getCurrentElement(evt.target) : undefined,
+        x: x,
+        y: y,
+        c: evt.changedTouches.length
+      }
+    },
+    "FocusEvent": function (evt: FocusEvent) {
+      return {
+        msg: evt.target instanceof HTMLElement ? getCurrentElement(evt.target) : "",
+        ms: "action",
+        ml: "info",
+        at: evt.type,
+        el: evt.target instanceof HTMLElement ? getCurrentElement(evt.target) : undefined,
+      }
+    },
+    "KeyboardEvent": function (evt: KeyboardEvent) {
+      return {
+        msg: `${evt.type} ${evt.key}`,
+        ms: "action",
+        ml: "info",
+        at: evt.type,
+        key: evt.key
+      }
+    },
+    "InputEvent": function (evt: InputEvent) {
+      return {
+        msg: `${evt.inputType} ${evt.data}`,
+        ms: "action",
+        ml: "info",
+        at: evt.type
+      }
+    }
+  }
 
   /**
    * 遍历当前突变的节点的子节点，所有存在action-data属性的节点挂载对应事件的监听
@@ -36,91 +97,20 @@ export default class ActionCollector<K extends keyof GlobalEventHandlersEventMap
         let aData = plainToClass(actionData, JSON.parse(attr.value));
         if (aData instanceof actionData) {
           aData.events.forEach(event => {
-            node.addEventListener(event, this.listener.bind(this));
-            this.nodes.add({
-              node,
-              event,
-              handler: this.listener
-            });
+            node.addEventListener(event, this.listener);
           })
         }
       }
     }
   }
-
-  private getCurrentElement(target: HTMLElement) {
-    let r = target.outerHTML.match("<.+?>");
-    return r && r[0] || "";
-  }
   
   private listener<K extends keyof GlobalEventHandlersEventMap>(evt: GlobalEventHandlersEventMap[K]) {
-    if (evt instanceof MouseEvent) {
-      this.collect({
-        msg: evt.target instanceof HTMLElement ? this.getCurrentElement(evt.target) : "",
-        ms: "action",
-        ml: "info",
-        at: evt.type,
-        el: evt.target instanceof HTMLElement ? this.getCurrentElement(evt.target) : undefined,
-        x: evt.x,
-        y: evt.y
-      });
-    } else if (evt instanceof DragEvent) {
-      this.collect({
-        msg: evt.target instanceof HTMLElement ? this.getCurrentElement(evt.target) : "",
-        ms: "action",
-        ml: "info",
-        at: evt.type,
-        el: evt.target instanceof HTMLElement ? this.getCurrentElement(evt.target) : undefined,
-        x: evt.x,
-        y: evt.y
-      });
-    } else if (evt instanceof TouchEvent) {
-      for (let len = evt.changedTouches.length, i = 0; i < len; ++i) {
-        this.collect({
-          msg: `${evt.type}`,
-          ms: "action",
-          ml: "info",
-          at: evt.type,
-          el: evt.target instanceof HTMLElement ? this.getCurrentElement(evt.target) : undefined,
-          x: evt.changedTouches[i].clientX,
-          y: evt.changedTouches[i].clientY,
-          c: len > 1 ? i : undefined 
-        });
-      }
-    } else if (evt instanceof FocusEvent) {
-      this.collect({
-        msg: evt.target instanceof HTMLElement ? this.getCurrentElement(evt.target) : "",
-        ms: "action",
-        ml: "info",
-        at: evt.type,
-        el: evt.target instanceof HTMLElement ? this.getCurrentElement(evt.target) : undefined,
-      });
-    } else if (evt instanceof KeyboardEvent) {
-      this.collect({
-        msg: `${evt.type} ${evt.key}`,
-        ms: "action",
-        ml: "info",
-        at: evt.type,
-        key: evt.key
-      });
-    } else if (evt instanceof InputEvent) {
-      this.collect({
-        msg: `${evt.inputType} ${evt.data}`,
-        ms: "action",
-        ml: "info",
-        at: evt.type
-      });
-    } else {
-      this.collect({
-        msg: `${evt}`,
-        ms: "action",
-        ml: "info",
-        at: evt.type
-      });
-    }
+    let evtName = getFnName(evt.constructor);
+    this.collect(this.evtsHandler[evtName](evt));
   }
 
   start(): void {
+    this.listener = this.listener.bind(this);
     this.observer = new MutationObserver((mutations: MutationRecord[], observer: MutationObserver) => {
       mutations.forEach((mutation) => {
         this.nodeBindActionHandler(mutation.target);
@@ -135,11 +125,6 @@ export default class ActionCollector<K extends keyof GlobalEventHandlersEventMap
   }
 
   stop(): void {
-    this.nodes.forEach(node => {
-      node.node && node.node.removeEventListener(node.event, node.handler);
-      node.node = null;
-    });
-    this.nodes.clear();
     this.observer.disconnect();
     this.observer.takeRecords();
     delete this.observer;
