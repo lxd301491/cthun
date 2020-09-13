@@ -1,7 +1,7 @@
 {
   "name": "cthun",
   "cname": "克苏恩",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "```\r npm install cthun --save",
   "scripts": {
     "dev": "rollup -c -w",
