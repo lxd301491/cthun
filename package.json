@@ -41,7 +41,7 @@
     "@types/mz": "0.0.32",
     "@types/pako": "^1.0.1",
     "@types/qs": "^6.9.1",
-    "axios": "^0.19.2",
+    "axios": "^0.21.1",
     "class-transformer": "^0.2.3",
     "qs": "^6.9.1",
     "reflect-metadata": "^0.1.13"
