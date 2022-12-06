@@ -43,7 +43,7 @@
     "@types/qs": "^6.9.1",
     "axios": "^0.19.2",
     "class-transformer": "^0.2.3",
-    "qs": "^6.9.1",
+    "qs": "^6.9.7",
     "reflect-metadata": "^0.1.13"
   },
   "repository": {
